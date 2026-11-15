@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE emails SYSTEM "../../../lib/pkp/dtd/emailTemplates.dtd">
+
+<emails>
+	<email key="JOURNAL_QUOTA_NOTIFY" name="plugins.generic.journalQuota.email.name" subject="emails.journalQuota.subject" body="emails.journalQuota.body"/>
+</emails>

@@ -1,0 +1,286 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+"Language: en\n"
+
+msgid "plugins.generic.journalQuota.displayName"
+msgstr "Journal Disk Quota"
+
+msgid "plugins.generic.journalQuota.description"
+msgstr "Lets the site administrator limit the disk space each journal may use, warn its journal managers and close new submissions and file uploads when the limit is exceeded."
+
+msgid "plugins.generic.journalQuota.menu"
+msgstr "Disk Space"
+
+msgid "plugins.generic.journalQuota.task"
+msgstr "Journal disk quota check"
+
+msgid "plugins.generic.journalQuota.notification"
+msgstr "This journal is using {$used} of its {$quota} disk space ({$percent}%)."
+
+msgid "plugins.generic.journalQuota.level.ok"
+msgstr "Disk usage is within the limit."
+
+msgid "plugins.generic.journalQuota.level.warn"
+msgstr "The journal is approaching its disk quota of {$quota}. Above {$blockLimit} new submissions and file uploads will be closed."
+
+msgid "plugins.generic.journalQuota.level.quota"
+msgstr "The journal has exceeded its disk quota of {$quota}. Above {$blockLimit} new submissions and file uploads will be closed: please free some space or contact the site administrator."
+
+msgid "plugins.generic.journalQuota.level.blocked"
+msgstr "New submissions and file uploads are closed because the journal has exceeded its disk limit ({$blockLimit}). Files can still be read, downloaded and deleted. To reopen, download the working files you want to keep and delete them from OJS, or contact the site administrator."
+
+msgid "plugins.generic.journalQuota.submissionsClosed"
+msgstr "This journal is not accepting new submissions at the moment."
+
+msgid "plugins.generic.journalQuota.part.articles"
+msgstr "Submission files"
+
+msgid "plugins.generic.journalQuota.part.issues"
+msgstr "Issue files"
+
+msgid "plugins.generic.journalQuota.part.library"
+msgstr "Publisher library"
+
+msgid "plugins.generic.journalQuota.part.other"
+msgstr "Other private files"
+
+msgid "plugins.generic.journalQuota.part.public"
+msgstr "Public files (images, covers, stylesheets)"
+
+msgid "plugins.generic.journalQuota.deletedSubmission"
+msgstr "Deleted submission (files still on disk)"
+
+msgid "plugins.generic.journalQuota.page.title"
+msgstr "Disk Space"
+
+msgid "plugins.generic.journalQuota.page.used"
+msgstr "{$used} used of {$quota} ({$percent}%)"
+
+msgid "plugins.generic.journalQuota.page.noLimit"
+msgstr "{$used} used. No limit has been set for this journal."
+
+msgid "plugins.generic.journalQuota.page.warnAt"
+msgstr "Warning at {$limit} ({$percent}% of the quota)"
+
+msgid "plugins.generic.journalQuota.page.quota"
+msgstr "Quota: {$limit}"
+
+msgid "plugins.generic.journalQuota.page.blockAt"
+msgstr "New submissions are closed above {$limit}"
+
+msgid "plugins.generic.journalQuota.page.computedAt"
+msgstr "Last full scan of the disk: {$date}. Uploads and deletions are counted immediately."
+
+msgid "plugins.generic.journalQuota.page.refresh"
+msgstr "Measure again"
+
+msgid "plugins.generic.journalQuota.page.breakdown"
+msgstr "Where the space goes"
+
+msgid "plugins.generic.journalQuota.page.notCounted"
+msgstr "not counted"
+
+msgid "plugins.generic.journalQuota.page.top"
+msgstr "Largest submissions"
+
+msgid "plugins.generic.journalQuota.page.help"
+msgstr "To free space, download the working files you want to keep (old revisions, review files, copyediting drafts), for example from the published or finished submissions in the list above, and then delete them from OJS. The final files of published articles must stay. You can also ask the site administrator for more space. Preservation copies (PKP PN) are not counted."
+
+msgid "plugins.generic.journalQuota.settings.quotaMb"
+msgstr "Quota (MB, 0 = no limit)"
+
+msgid "plugins.generic.journalQuota.settings.warnPct"
+msgstr "Warning threshold (% of quota)"
+
+msgid "plugins.generic.journalQuota.settings.tolerancePct"
+msgstr "Tolerance (% above quota)"
+
+msgid "plugins.generic.journalQuota.settings.mode"
+msgstr "When the quota is reached"
+
+msgid "plugins.generic.journalQuota.settings.mode.grace"
+msgstr "Warn, close beyond the tolerance"
+
+msgid "plugins.generic.journalQuota.settings.mode.block"
+msgstr "Close submissions and uploads immediately"
+
+msgid "plugins.generic.journalQuota.settings.reminderDays"
+msgstr "Repeat the email every (days, 0 = never)"
+
+msgid "plugins.generic.journalQuota.settings.notify"
+msgstr "Email the journal managers:"
+
+msgid "plugins.generic.journalQuota.settings.notifyWarn"
+msgstr "at the warning threshold"
+
+msgid "plugins.generic.journalQuota.settings.notifyQuota"
+msgstr "at the quota"
+
+msgid "plugins.generic.journalQuota.settings.notifyTolerance"
+msgstr "when submissions are closed"
+
+msgid "plugins.generic.journalQuota.settings.countPublic"
+msgstr "public files (images, covers)"
+
+msgid "plugins.generic.journalQuota.email.name"
+msgstr "Disk Quota Alert"
+
+msgid "plugins.generic.journalQuota.email.description"
+msgstr "Sent automatically to the journal managers when the journal's disk usage crosses the warning threshold, the quota or the tolerance."
+
+msgid "plugins.generic.journalQuota.variable.used"
+msgstr "Disk space used by the journal"
+
+msgid "plugins.generic.journalQuota.variable.limit"
+msgstr "Disk quota of the journal"
+
+msgid "plugins.generic.journalQuota.variable.percent"
+msgstr "Percentage of the quota used"
+
+msgid "plugins.generic.journalQuota.variable.message"
+msgstr "Explanation of the current level and its effect on submissions"
+
+msgid "plugins.generic.journalQuota.variable.url"
+msgstr "Link to the journal's Disk Space page"
+
+msgid "plugins.generic.journalQuota.settings.defaults.description"
+msgstr "These values apply to every journal without a custom quota, including journals created later."
+
+msgid "plugins.generic.journalQuota.page.notMeasured"
+msgstr "Not measured yet: usage is measured within the hour."
+
+msgid "plugins.generic.journalQuota.settings.scanHours"
+msgstr "Full disk scan every (hours)"
+
+msgid "plugins.generic.journalQuota.settings.scanHours.description"
+msgstr "The full scan recounts every file and realigns the running count, correcting any difference (for example files added or removed by FTP). Default: 24."
+
+msgid "plugins.generic.journalQuota.part.database"
+msgstr "Database (estimate)"
+
+msgid "plugins.generic.journalQuota.settings.countDatabase"
+msgstr "the journal's share of the database (estimate, updated with the full measurement)"
+
+msgid "plugins.generic.journalQuota.page.dbTables"
+msgstr "Heaviest tables"
+
+msgid "plugins.generic.journalQuota.overview.title"
+msgstr "Journal disk space"
+
+msgid "plugins.generic.journalQuota.overview.description"
+msgstr "Space used by every journal, with quotas, alerts and default values."
+
+msgid "plugins.generic.journalQuota.overview.link"
+msgstr "Manage journal space"
+
+msgid "plugins.generic.journalQuota.overview.select"
+msgstr "Journal:"
+
+msgid "plugins.generic.journalQuota.overview.of"
+msgstr "of {$quota}"
+
+msgid "plugins.generic.journalQuota.overview.blocked"
+msgstr "closed"
+
+msgid "plugins.generic.journalQuota.overview.open"
+msgstr "Open the journal's Space page"
+
+msgid "plugins.generic.journalQuota.overview.show"
+msgstr "Open"
+
+msgid "plugins.generic.journalQuota.upload.blocked"
+msgstr "The file was not uploaded: {$journal} has exceeded its disk limit ({$limit}). Download the working files you want to keep and delete them from OJS (see the Disk Space page), or contact the site administrator."
+
+msgid "plugins.generic.journalQuota.upload.tooLarge"
+msgstr "The file was not uploaded: with this file ({$size}) {$journal} would exceed its disk limit ({$limit}); only {$free} are left. Download the working files you want to keep and delete them from OJS (see the Disk Space page), or contact the site administrator."
+
+msgid "plugins.generic.journalQuota.overview.defaults"
+msgstr "Default values for all journals"
+
+msgid "plugins.generic.journalQuota.overview.noLimit"
+msgstr "no limit"
+
+msgid "plugins.generic.journalQuota.overview.warning"
+msgstr "warning"
+
+msgid "plugins.generic.journalQuota.overview.saved"
+msgstr "Settings saved."
+
+msgid "plugins.generic.journalQuota.overview.space"
+msgstr "Space of {$journal}"
+
+msgid "plugins.generic.journalQuota.overview.limits"
+msgstr "Limits"
+
+msgid "plugins.generic.journalQuota.overview.useDefaults"
+msgstr "Use the default values"
+
+msgid "plugins.generic.journalQuota.overview.useCustom"
+msgstr "Custom values for this journal"
+
+msgid "plugins.generic.journalQuota.overview.usedBy"
+msgstr "Currently used by: {$journals}."
+
+msgid "plugins.generic.journalQuota.overview.usedByNone"
+msgstr "Every journal currently has custom values."
+
+msgid "plugins.generic.journalQuota.overview.scan"
+msgstr "Disk measurement"
+
+msgid "plugins.generic.journalQuota.overview.intro"
+msgstr "Choose a journal from the menu (or click its name) to see its details and change its limits; the last menu entry opens the default values."
+
+msgid "plugins.generic.journalQuota.overview.summary"
+msgstr "{$quota}, warning at {$warn}%, {$mode}"
+
+msgid "plugins.generic.journalQuota.overview.summary.noLimit"
+msgstr "No space limit"
+
+msgid "plugins.generic.journalQuota.overview.summary.block"
+msgstr "submissions and uploads closed at the quota"
+
+msgid "plugins.generic.journalQuota.overview.summary.grace"
+msgstr "closed beyond {$tolerance}% tolerance"
+
+msgid "plugins.generic.journalQuota.settings.more"
+msgstr "Emails and what is counted"
+
+msgid "plugins.generic.journalQuota.settings.counted"
+msgstr "The quota also counts:"
+
+msgid "plugins.generic.journalQuota.overview.all"
+msgstr "All journals (overview)"
+
+msgid "plugins.generic.journalQuota.overview.site"
+msgstr "Total space"
+
+msgid "plugins.generic.journalQuota.overview.siteOf"
+msgstr "used by {$number} journals (files and database, including parts that some journals do not count toward their quota)"
+
+msgid "plugins.generic.journalQuota.overview.status"
+msgstr "Journal status"
+
+msgid "plugins.generic.journalQuota.overview.state.blocked"
+msgstr "closed (over the limit)"
+
+msgid "plugins.generic.journalQuota.overview.state.warning"
+msgstr "warning"
+
+msgid "plugins.generic.journalQuota.overview.state.ok"
+msgstr "within the limit"
+
+msgid "plugins.generic.journalQuota.overview.state.noLimit"
+msgstr "no limit"
+
+msgid "plugins.generic.journalQuota.overview.byJournal"
+msgstr "Space by journal"
+
+msgid "plugins.generic.journalQuota.overview.problem"
+msgstr "Warning: on {$date} the plugin ran into a problem. The journals kept working, but at that moment disk space may not have been checked or an alert may have been sent twice. If the message repeats, check the PHP log and the permissions of the files_dir/journalQuota folder. This notice disappears after 7 days without problems."
+
+msgid "plugins.generic.journalQuota.upload.busy"
+msgstr "Too many uploads are in progress at the same time in {$journal}: the file was not uploaded. Please try again in a few seconds."

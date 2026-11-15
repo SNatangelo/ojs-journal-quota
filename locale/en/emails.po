@@ -1,0 +1,13 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+"Language: en\n"
+
+msgid "emails.journalQuota.subject"
+msgstr "{$contextName}: disk space at {$quotaPercent}%"
+
+msgid "emails.journalQuota.body"
+msgstr "<p>Dear {$recipientName},</p><p>{$contextName} is using {$quotaUsed} of its {$quotaLimit} disk quota ({$quotaPercent}%).</p><p>{$quotaMessage}</p><p>You can see where the space goes, and the largest submissions, on the <a href=\"{$quotaUrl}\">Disk Space</a> page.</p>"

@@ -1,0 +1,286 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+"Language: it\n"
+
+msgid "plugins.generic.journalQuota.displayName"
+msgstr "Quota disco delle riviste"
+
+msgid "plugins.generic.journalQuota.description"
+msgstr "Permette all'amministratore del sito di limitare lo spazio disco di ogni rivista, avvisare i journal manager e chiudere le nuove submission e i caricamenti di file quando il limite viene superato."
+
+msgid "plugins.generic.journalQuota.menu"
+msgstr "Spazio disco"
+
+msgid "plugins.generic.journalQuota.task"
+msgstr "Controllo quota disco delle riviste"
+
+msgid "plugins.generic.journalQuota.notification"
+msgstr "Questa rivista usa {$used} dei {$quota} di spazio disco disponibili ({$percent}%)."
+
+msgid "plugins.generic.journalQuota.level.ok"
+msgstr "Lo spazio usato è entro il limite."
+
+msgid "plugins.generic.journalQuota.level.warn"
+msgstr "La rivista si sta avvicinando alla quota di {$quota}. Oltre {$blockLimit} si chiuderanno le nuove submission e il caricamento di file."
+
+msgid "plugins.generic.journalQuota.level.quota"
+msgstr "La rivista ha superato la quota di {$quota}. Oltre {$blockLimit} si chiuderanno le nuove submission e il caricamento di file: liberate spazio o contattate l'amministratore del sito."
+
+msgid "plugins.generic.journalQuota.level.blocked"
+msgstr "Le nuove submission e il caricamento di file sono chiusi perché la rivista ha superato il limite di spazio ({$blockLimit}). I file si possono ancora leggere, scaricare e cancellare. Per riaprire, scaricate i file di lavoro che volete conservare e cancellateli da OJS, oppure contattate l'amministratore del sito."
+
+msgid "plugins.generic.journalQuota.submissionsClosed"
+msgstr "Al momento questa rivista non accetta nuove submission."
+
+msgid "plugins.generic.journalQuota.part.articles"
+msgstr "File delle submission"
+
+msgid "plugins.generic.journalQuota.part.issues"
+msgstr "File dei fascicoli"
+
+msgid "plugins.generic.journalQuota.part.library"
+msgstr "Biblioteca dell'editore"
+
+msgid "plugins.generic.journalQuota.part.other"
+msgstr "Altri file privati"
+
+msgid "plugins.generic.journalQuota.part.public"
+msgstr "File pubblici (immagini, copertine, fogli di stile)"
+
+msgid "plugins.generic.journalQuota.deletedSubmission"
+msgstr "Submission eliminata (file ancora sul disco)"
+
+msgid "plugins.generic.journalQuota.page.title"
+msgstr "Spazio disco"
+
+msgid "plugins.generic.journalQuota.page.used"
+msgstr "{$used} usati su {$quota} ({$percent}%)"
+
+msgid "plugins.generic.journalQuota.page.noLimit"
+msgstr "{$used} usati. Per questa rivista non è stato impostato un limite."
+
+msgid "plugins.generic.journalQuota.page.warnAt"
+msgstr "Avviso a {$limit} ({$percent}% della quota)"
+
+msgid "plugins.generic.journalQuota.page.quota"
+msgstr "Quota: {$limit}"
+
+msgid "plugins.generic.journalQuota.page.blockAt"
+msgstr "Le nuove submission si chiudono oltre {$limit}"
+
+msgid "plugins.generic.journalQuota.page.computedAt"
+msgstr "Ultima misura completa del disco: {$date}. Caricamenti e cancellazioni si contano subito."
+
+msgid "plugins.generic.journalQuota.page.refresh"
+msgstr "Misura di nuovo"
+
+msgid "plugins.generic.journalQuota.page.breakdown"
+msgstr "Dove va lo spazio"
+
+msgid "plugins.generic.journalQuota.page.notCounted"
+msgstr "non conteggiato"
+
+msgid "plugins.generic.journalQuota.page.top"
+msgstr "Submission più grandi"
+
+msgid "plugins.generic.journalQuota.page.help"
+msgstr "Per liberare spazio, scaricate sul vostro computer i file di lavoro che volete conservare (vecchie revisioni, file di revisione, bozze di copyediting), per esempio delle submission pubblicate o concluse nell'elenco qui sopra, e poi cancellateli da OJS. I file finali degli articoli pubblicati devono restare. Potete anche chiedere più spazio all'amministratore del sito. Le copie di conservazione (PKP PN) non sono conteggiate."
+
+msgid "plugins.generic.journalQuota.settings.quotaMb"
+msgstr "Quota (MB, 0 = nessun limite)"
+
+msgid "plugins.generic.journalQuota.settings.warnPct"
+msgstr "Soglia di avviso (% della quota)"
+
+msgid "plugins.generic.journalQuota.settings.tolerancePct"
+msgstr "Tolleranza (% oltre la quota)"
+
+msgid "plugins.generic.journalQuota.settings.mode"
+msgstr "Al raggiungimento della quota"
+
+msgid "plugins.generic.journalQuota.settings.mode.grace"
+msgstr "Avvisa, chiudi oltre la tolleranza"
+
+msgid "plugins.generic.journalQuota.settings.mode.block"
+msgstr "Chiudi subito submission e caricamenti"
+
+msgid "plugins.generic.journalQuota.settings.reminderDays"
+msgstr "Ripeti l'email ogni (giorni, 0 = mai)"
+
+msgid "plugins.generic.journalQuota.settings.notify"
+msgstr "Email ai journal manager:"
+
+msgid "plugins.generic.journalQuota.settings.notifyWarn"
+msgstr "alla soglia di avviso"
+
+msgid "plugins.generic.journalQuota.settings.notifyQuota"
+msgstr "alla quota"
+
+msgid "plugins.generic.journalQuota.settings.notifyTolerance"
+msgstr "alla chiusura delle submission"
+
+msgid "plugins.generic.journalQuota.settings.countPublic"
+msgstr "i file pubblici (immagini, copertine)"
+
+msgid "plugins.generic.journalQuota.email.name"
+msgstr "Avviso quota disco"
+
+msgid "plugins.generic.journalQuota.email.description"
+msgstr "Inviata automaticamente ai journal manager quando lo spazio usato dalla rivista supera la soglia di avviso, la quota o la tolleranza."
+
+msgid "plugins.generic.journalQuota.variable.used"
+msgstr "Spazio disco usato dalla rivista"
+
+msgid "plugins.generic.journalQuota.variable.limit"
+msgstr "Quota disco della rivista"
+
+msgid "plugins.generic.journalQuota.variable.percent"
+msgstr "Percentuale della quota usata"
+
+msgid "plugins.generic.journalQuota.variable.message"
+msgstr "Spiegazione del livello attuale e dell'effetto sulle submission"
+
+msgid "plugins.generic.journalQuota.variable.url"
+msgstr "Link alla pagina Spazio disco della rivista"
+
+msgid "plugins.generic.journalQuota.settings.defaults.description"
+msgstr "Questi valori valgono per ogni rivista senza quota personalizzata, anche per quelle create in futuro."
+
+msgid "plugins.generic.journalQuota.page.notMeasured"
+msgstr "Non ancora misurato: lo spazio viene misurato entro un'ora."
+
+msgid "plugins.generic.journalQuota.settings.scanHours"
+msgstr "Misura completa del disco ogni (ore)"
+
+msgid "plugins.generic.journalQuota.settings.scanHours.description"
+msgstr "La misura completa riconta tutti i file e riallinea il conteggio, correggendo eventuali differenze (per esempio file aggiunti o tolti via FTP). Predefinito: 24."
+
+msgid "plugins.generic.journalQuota.part.database"
+msgstr "Database (stima)"
+
+msgid "plugins.generic.journalQuota.settings.countDatabase"
+msgstr "la parte del database della rivista (stima, aggiornata con la misura completa)"
+
+msgid "plugins.generic.journalQuota.page.dbTables"
+msgstr "Tabelle più pesanti"
+
+msgid "plugins.generic.journalQuota.overview.title"
+msgstr "Spazio delle riviste"
+
+msgid "plugins.generic.journalQuota.overview.description"
+msgstr "Spazio occupato da ogni rivista, con quote, avvisi e valori predefiniti."
+
+msgid "plugins.generic.journalQuota.overview.link"
+msgstr "Gestisci lo spazio delle riviste"
+
+msgid "plugins.generic.journalQuota.overview.select"
+msgstr "Rivista:"
+
+msgid "plugins.generic.journalQuota.overview.of"
+msgstr "su {$quota}"
+
+msgid "plugins.generic.journalQuota.overview.blocked"
+msgstr "chiusa"
+
+msgid "plugins.generic.journalQuota.overview.open"
+msgstr "Apri la pagina Spazio della rivista"
+
+msgid "plugins.generic.journalQuota.overview.show"
+msgstr "Apri"
+
+msgid "plugins.generic.journalQuota.upload.blocked"
+msgstr "Il file non è stato caricato: {$journal} ha superato il limite di spazio ({$limit}). Scaricate i file di lavoro che volete conservare e cancellateli da OJS (vedi la pagina Spazio disco), oppure contattate l'amministratore del sito."
+
+msgid "plugins.generic.journalQuota.upload.tooLarge"
+msgstr "Il file non è stato caricato: con questo file ({$size}) {$journal} supererebbe il limite di spazio ({$limit}); restano solo {$free}. Scaricate i file di lavoro che volete conservare e cancellateli da OJS (vedi la pagina Spazio disco), oppure contattate l'amministratore del sito."
+
+msgid "plugins.generic.journalQuota.overview.defaults"
+msgstr "Valori predefiniti per tutte le riviste"
+
+msgid "plugins.generic.journalQuota.overview.noLimit"
+msgstr "nessun limite"
+
+msgid "plugins.generic.journalQuota.overview.warning"
+msgstr "attenzione"
+
+msgid "plugins.generic.journalQuota.overview.saved"
+msgstr "Impostazioni salvate."
+
+msgid "plugins.generic.journalQuota.overview.space"
+msgstr "Spazio di {$journal}"
+
+msgid "plugins.generic.journalQuota.overview.limits"
+msgstr "Limiti"
+
+msgid "plugins.generic.journalQuota.overview.useDefaults"
+msgstr "Usa i valori predefiniti"
+
+msgid "plugins.generic.journalQuota.overview.useCustom"
+msgstr "Valori personalizzati per questa rivista"
+
+msgid "plugins.generic.journalQuota.overview.usedBy"
+msgstr "Ora li usano: {$journals}."
+
+msgid "plugins.generic.journalQuota.overview.usedByNone"
+msgstr "Ora tutte le riviste hanno valori personalizzati."
+
+msgid "plugins.generic.journalQuota.overview.scan"
+msgstr "Misura del disco"
+
+msgid "plugins.generic.journalQuota.overview.intro"
+msgstr "Scegliete una rivista dal menu (o cliccate il suo nome) per vederne il dettaglio e cambiarne i limiti; l'ultima voce del menu apre i valori predefiniti."
+
+msgid "plugins.generic.journalQuota.overview.summary"
+msgstr "{$quota}, avviso all'{$warn}%, {$mode}"
+
+msgid "plugins.generic.journalQuota.overview.summary.noLimit"
+msgstr "Nessun limite di spazio"
+
+msgid "plugins.generic.journalQuota.overview.summary.block"
+msgstr "submission e caricamenti chiusi alla quota"
+
+msgid "plugins.generic.journalQuota.overview.summary.grace"
+msgstr "chiusura oltre il {$tolerance}% di tolleranza"
+
+msgid "plugins.generic.journalQuota.settings.more"
+msgstr "Email e cosa si conta"
+
+msgid "plugins.generic.journalQuota.settings.counted"
+msgstr "Nella quota si contano anche:"
+
+msgid "plugins.generic.journalQuota.overview.all"
+msgstr "Tutte le riviste (panoramica)"
+
+msgid "plugins.generic.journalQuota.overview.site"
+msgstr "Spazio complessivo"
+
+msgid "plugins.generic.journalQuota.overview.siteOf"
+msgstr "occupati da {$number} riviste (file e database, anche le parti che per qualche rivista non contano nella quota)"
+
+msgid "plugins.generic.journalQuota.overview.status"
+msgstr "Stato delle riviste"
+
+msgid "plugins.generic.journalQuota.overview.state.blocked"
+msgstr "chiuse (oltre il limite)"
+
+msgid "plugins.generic.journalQuota.overview.state.warning"
+msgstr "in attenzione"
+
+msgid "plugins.generic.journalQuota.overview.state.ok"
+msgstr "nella norma"
+
+msgid "plugins.generic.journalQuota.overview.state.noLimit"
+msgstr "senza limite"
+
+msgid "plugins.generic.journalQuota.overview.byJournal"
+msgstr "Spazio per rivista"
+
+msgid "plugins.generic.journalQuota.overview.problem"
+msgstr "Attenzione: il {$date} il plugin ha avuto un problema. Il lavoro delle riviste non si è fermato, ma in quel momento lo spazio potrebbe non essere stato controllato o un avviso potrebbe essere partito due volte. Se il messaggio si ripete, controlla il log di PHP e i permessi della cartella files_dir/journalQuota. L'avviso sparisce dopo 7 giorni senza problemi."
+
+msgid "plugins.generic.journalQuota.upload.busy"
+msgstr "In questo momento ci sono troppi caricamenti contemporanei nella rivista {$journal}: il file non è stato caricato. Riprovate tra qualche secondo."
