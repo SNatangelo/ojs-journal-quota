@@ -17,7 +17,7 @@ The plugin is particularly useful for institutions and non-commercial hosts runn
 
 ## Compatibility
 
-Version **1.0.0** was reviewed against **OJS 3.5.0-5**. PHP syntax checks passed on PHP 8.4; concurrency and accounting checks were performed using MariaDB 10.11/InnoDB and isolated PHP fixtures. Full end-to-end testing inside OJS is still recommended before deploying to a production instance.
+Version **1.0.0** was developed and installed on **OJS 3.5.0-6**. PHP syntax checks passed on PHP 8.4; concurrency and accounting checks were performed using MariaDB 10.11/InnoDB and isolated PHP fixtures. A complete automated end-to-end test suite inside OJS has not yet been run.
 
 Compatibility with other OJS versions and database engines has not yet been verified.
 
