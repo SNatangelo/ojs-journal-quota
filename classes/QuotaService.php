@@ -10,17 +10,17 @@
  *
  * @class QuotaService
  *
- * @brief Misura lo spazio occupato da una rivista, calcola il livello rispetto
- *  alla quota e invia avvisi (email e notifiche di OJS) ai journal manager.
+ * @brief Measures journal disk usage, determines quota status,
+ *  and sends alerts (email and OJS notifications) to journal managers.
  *
- *  OJS non registra la dimensione dei file, quindi il plugin tiene un registro
- *  con una riga per file (QuotaLedger) e il totale è la loro somma:
- *  - la prima volta, e poi ogni scanHours ore, una misura completa sul disco
- *    allinea il registro;
- *  - in mezzo, ogni file di submission caricato o cancellato aggiorna subito
- *    la sua riga, e le parti piccole (fascicoli, biblioteca, pubblici) si
- *    rimisurano dopo ogni modifica fatta da un utente (refreshSmallParts).
- *  Le pagine leggono solo il registro e non scandiscono mai il disco.
+ *  OJS does not store file sizes, so the plugin maintains a ledger
+ *  with one row per file (QuotaLedger), and sums those rows:
+ *  - initially and every scanHours hours, a full disk scan
+ *    reconciles the ledger;
+ *  - between scans, submission-file uploads and deletions update
+ *    their rows immediately, while small sections (issues, library,
+ *    public files) are rescanned after user changes (refreshSmallParts).
+ *  Pages read the ledger only; they never scan the disk.
  */
 
 namespace APP\plugins\generic\journalQuota\classes;
@@ -47,23 +47,23 @@ class QuotaService
     public const LEVEL_QUOTA = 2;
     public const LEVEL_TOLERANCE = 3;
 
-    /** Blocco appena si raggiunge la quota */
+    /** Block as soon as the quota is reached */
     public const MODE_BLOCK = 'block';
-    /** Avviso alla quota, blocco oltre la tolleranza */
+    /** Warn at the quota; block beyond the tolerance threshold */
     public const MODE_GRACE = 'grace';
 
-    /** Durata massima di una prenotazione di spazio per un caricamento */
+    /** Maximum lifetime of an upload reservation */
     public const RESERVATION_SECONDS = 3600;
 
-    /** Margine sotto una soglia prima che l'avviso scenda di livello (frazione della quota, minimo 1 MB) */
+    /** Margin below a threshold before lowering the alert level (fraction of quota; at least 1 MB) */
     public const RESERVE_ATTEMPTS = 5;
     public const HYSTERESIS = 0.02;
 
-    /** Limiti dei valori: 1 PB di quota, tolleranza al massimo 10 volte la quota */
+    /** Value limits: maximum quota of 1 PB; tolerance at most ten times the quota */
     public const MAX_QUOTA_MB = 1000000000;
     public const MAX_TOLERANCE_PCT = 1000;
 
-    /** Ore tra una misura completa del disco e la successiva (predefinito) */
+    /** Default hours between full disk scans */
     public const SCAN_HOURS = 24;
 
     public const DEFAULTS = [
@@ -79,7 +79,7 @@ class QuotaService
         'countDatabase' => true,
     ];
 
-    /** Parti dello spazio, nell'ordine in cui si mostrano, con il loro colore */
+    /** Storage sections in display order, with their colors */
     public const PART_COLORS = [
         'articles' => '#1e6fa8',
         'issues' => '#7b4fc9',
@@ -89,20 +89,20 @@ class QuotaService
         'database' => '#00838f',
     ];
 
-    /** Minuti minimi tra due stime del database */
+    /** Minimum minutes between database-size estimates */
     public const DATABASE_MINUTES = 10;
 
-    /** Stato già calcolato in questa richiesta, per rivista */
+    /** Computed per-journal status cached for this request */
     private array $statusCache = [];
 
-    /** Email consegnate al server di posta in questo processo (evento MessageSent) */
+    /** Messages delivered to the mail server in this process (MessageSent event) */
     private int $delivered = 0;
 
     private bool $listening = false;
 
     private ?QuotaLedger $ledger = null;
 
-    /** Cartella dei blocchi e delle prenotazioni (vedi stateDir) */
+    /** Directory for locks and reservations (see stateDir) */
     private ?string $stateDir = null;
 
     public function __construct(private JournalQuotaPlugin $plugin)
@@ -110,14 +110,14 @@ class QuotaService
     }
 
     /**
-     * Misura (se richiesto) e allinea avvisi ed email, una rivista alla volta.
+     * Measure if requested, then synchronize alerts and email one journal at a time.
      *
-     * L'attività pianificata, "Misura di nuovo" e il salvataggio delle
-     * impostazioni possono partire insieme: senza blocco due processi
-     * manderebbero le stesse email e creerebbero notifiche doppie. Il blocco è
-     * un flock su un file in files_dir, rilasciato dal sistema anche se il
-     * processo si interrompe. Se un altro processo sta già controllando la
-     * rivista, si salta e si restituisce null.
+     * The scheduled task, "Scan again", and settings updates may run
+     * concurrently: without a lock, two processes could send the same
+     * email and create duplicate notifications. The lock uses flock on a
+     * file in files_dir; the OS releases it even if the process exits.
+     * If another process is already checking the journal,
+     * skip it and return null.
      */
     public function check(Context $context, bool $refresh): ?array
     {
@@ -129,7 +129,7 @@ class QuotaService
             if ($refresh) {
                 $this->usage($context, true);
             }
-            // Impostazioni rilette dentro il blocco: valgono quelle appena salvate
+            // Reload settings inside the lock to use the most recently saved values.
             $status = $this->status($context);
             $this->processAlerts($context, $status);
             return $status;
@@ -140,42 +140,42 @@ class QuotaService
     }
 
     /**
-     * Prenota lo spazio di un caricamento. Prenotazioni e blocco stanno nel
-     * database (tabella journal_quota_reservations), non su file: non
-     * dipendono dai permessi delle cartelle. Dentro una transazione si blocca
-     * la riga della rivista, poi si leggono lo spazio usato e le prenotazioni
-     * degli altri caricamenti in corso: due caricamenti nello stesso istante
-     * non superano insieme il limite.
+     * Reserve storage for an upload. Reservations and locks are kept in
+     * the database (journal_quota_reservations), not files, so they do
+     * not depend on directory permissions. Within a transaction, lock
+     * the journal row, then read used space and reservations from
+     * other active uploads: concurrent uploads cannot jointly
+     * exceed the limit.
      *
-     * @return array ['token' => codice da liberare ('' senza limite) o null se
-     *  rifiutato, 'status' => stato della rivista, 'pending' => byte prenotati da altri]
+     * @return array ['token' => token to release ('' when unlimited) or null
+     *  if rejected, 'status' => journal status, 'pending' => bytes reserved by others]
      */
     public function reserveUpload(Context $context, int $bytes): array
     {
         $id = $context->getId();
         $this->ledger();
-        // Prima della prima misura lo spazio usato risulta 0: una rivista
-        // nuova accetterebbe file su file fino al controllo orario. Si misura
-        // adesso, una volta sola (fuori dalla transazione: può durare).
+        // Before the first scan, used space appears as zero: a new
+        // journal could accept unlimited files until the hourly check.
+        // Scan now, once, outside the transaction because it may take time.
         if (!$this->hasUsage($context) && $this->settings($id)['quotaMb'] > 0) {
             $this->measureOnce($context);
         }
         $table = QuotaSchemaMigration::RESERVATIONS;
-        // Riga di blocco della rivista (0 byte, non scade mai), creata in una
-        // istruzione a sé: dentro la transazione il primo accesso è già il
-        // blocco esclusivo, senza passare da un blocco condiviso (due richieste
-        // che convertono insieme un blocco condiviso vanno in deadlock)
+        // Create the journal lock row (zero bytes, never expires) in a
+        // separate statement: the first operation inside the transaction
+        // then acquires an exclusive lock directly. Concurrent upgrades
+        // from shared to exclusive locks could otherwise deadlock.
         DB::table($table)->insertOrIgnore(['token' => "lock-{$id}", 'context_id' => $id, 'bytes' => 0, 'expires' => PHP_INT_MAX]);
         try {
-            // Se il database interrompe comunque una transazione (deadlock o
-            // attesa troppo lunga) la si ripete, fino a RESERVE_ATTEMPTS volte
+            // If the database aborts a transaction (deadlock or excessive
+            // lock wait), retry up to RESERVE_ATTEMPTS times.
             return DB::transaction(fn () => $this->reserveLocked($context, $id, $bytes), self::RESERVE_ATTEMPTS);
         } catch (QueryException $e) {
             if (!self::isConcurrencyError($e)) {
                 throw $e;
             }
-            // Troppi caricamenti insieme: il caricamento si rifiuta (si può
-            // riprovare subito), non passa senza controllo
+            // Too many concurrent uploads: reject this upload (it can be
+            // retried immediately) rather than allowing it unchecked.
             return ['token' => null, 'busy' => true, 'status' => $this->status($context), 'pending' => 0];
         }
     }
@@ -184,20 +184,20 @@ class QuotaService
     {
         $table = QuotaSchemaMigration::RESERVATIONS;
         if (!DB::table($table)->where('token', "lock-{$id}")->lockForUpdate()->first()) {
-            // Riga cancellata a mano tra le due istruzioni: si ricrea (e si
-            // riparte, così il blocco è preso sulla riga vera)
+            // Lock row deleted manually between statements: recreate it
+            // and retry so the real row is locked.
             DB::table($table)->insertOrIgnore(['token' => "lock-{$id}", 'context_id' => $id, 'bytes' => 0, 'expires' => PHP_INT_MAX]);
             DB::table($table)->where('token', "lock-{$id}")->lockForUpdate()->first();
         }
 
-        // Lo spazio usato si rilegge sotto blocco: un caricamento appena
-        // concluso ha già la sua riga nel registro
+        // Reread used space under the lock: a recently completed upload
+        // already has a ledger row.
         $this->forgetStatus($id);
         $status = $this->status($context);
         if ($status['quota'] <= 0) {
             return ['token' => '', 'status' => $status, 'pending' => 0];
         }
-        // Le prenotazioni di richieste interrotte scadono da sole
+        // Reservations from interrupted requests expire automatically.
         DB::table($table)->where('context_id', $id)->where('expires', '<', time())->delete();
         $pending = (int) DB::table($table)->where('context_id', $id)->sum('bytes');
         if ($status['blocked'] || $status['used'] + $pending + $bytes > $status['blockLimit']) {
@@ -213,7 +213,7 @@ class QuotaService
         return ['token' => $token, 'status' => $status, 'pending' => $pending];
     }
 
-    /** Deadlock o attesa del blocco scaduta (MySQL/MariaDB e PostgreSQL) */
+    /** Deadlock or lock wait timeout (MySQL/MariaDB and PostgreSQL) */
     public static function isConcurrencyError(Throwable $e): bool
     {
         $info = $e instanceof QueryException ? ($e->errorInfo ?? []) : [];
@@ -224,8 +224,8 @@ class QuotaService
     }
 
     /**
-     * Prima misura di una rivista, aspettando un'eventuale misura già in
-     * corso (che basta, se finisce bene)
+     * First scan of a journal, waiting for any scan already
+     * running (sufficient if it completes successfully).
      */
     private function measureOnce(Context $context): void
     {
@@ -242,28 +242,28 @@ class QuotaService
         }
     }
 
-    /** A fine richiesta: i file salvati sono ormai nel registro */
+    /** At request completion, saved files are already in the ledger */
     public function releaseUpload(int $contextId, string $token): void
     {
         DB::table(QuotaSchemaMigration::RESERVATIONS)->where('token', $token)->delete();
     }
 
     /**
-     * Registro dei file contati. Avvisi ed email restano al controllo orario,
-     * per non rallentare il caricamento di chi sta lavorando.
+     * File ledger. Alerts and email remain on the hourly schedule
+     * to avoid slowing down users' uploads.
      */
     public function ledger(): QuotaLedger
     {
         return $this->ledger ??= new QuotaLedger($this->plugin);
     }
 
-    /** Un file di files_dir è stato caricato: conta subito */
+    /** A file in files_dir was uploaded: count it immediately */
     public function fileStored(string $relative): void
     {
         $this->forgetStatus($this->ledger()->stored($relative));
     }
 
-    /** Un file di files_dir potrebbe essere stato cancellato */
+    /** A file in files_dir may have been deleted */
     public function fileRemoved(string $relative): void
     {
         $this->forgetStatus($this->ledger()->removed($relative));
@@ -288,14 +288,14 @@ class QuotaService
     }
 
     /**
-     * Blocco del controllo di una rivista, o null se lo tiene un altro processo
+     * Lock for a journal check, or null if another process holds it
      *
      * @return resource|null
      */
     /**
-     * Cartella dei blocchi dei controlli (files_dir/journalQuota). Servono
-     * solo a non mandare due volte le stesse email: se manca, il controllo
-     * funziona lo stesso. Le prenotazioni dei caricamenti sono nel database.
+     * Directory for check locks (files_dir/journalQuota). These locks
+     * only prevent duplicate emails; checks still work if absent.
+     * Upload reservations remain in the database.
      */
     private function stateDir(): string
     {
@@ -304,15 +304,15 @@ class QuotaService
         }
         $dir = rtrim(Config::getVar('files', 'files_dir'), '/') . '/journalQuota';
         if (!is_dir($dir) && @mkdir($dir, 0775, true)) {
-            // Come per i file: web e riga di comando possono essere utenti diversi
+            // As with files, web and CLI processes may run as different users.
             @chmod($dir, 0777);
         }
         return $this->stateDir = $dir;
     }
 
     /**
-     * Ricorda l'ultimo problema (al massimo una scrittura l'ora per lo stesso
-     * messaggio), per mostrarlo nella pagina dell'amministratore
+     * Record the latest problem (at most once per hour for the same
+     * message) for display on the administrator page.
      */
     public function reportProblem(string $message): void
     {
@@ -324,11 +324,11 @@ class QuotaService
                 $this->plugin->updateSetting($site, 'lastProblem', ['at' => time(), 'message' => mb_substr($message, 0, 500)], 'object');
             }
         } catch (Throwable) {
-            // Il database stesso non risponde: resta il log
+            // The database itself is unavailable: keep only the log entry.
         }
     }
 
-    /** Ultimo problema degli ultimi 7 giorni, o null */
+    /** Latest problem from the past seven days, or null */
     public function lastProblem(): ?array
     {
         $last = (array) ($this->plugin->getSetting(Application::SITE_CONTEXT_ID, 'lastProblem') ?: []);
@@ -342,11 +342,11 @@ class QuotaService
         $new = !file_exists($file);
         $handle = @fopen($file, 'c');
         if ($handle && $new) {
-            // Il controllo può partire dal web o dalla riga di comando, con utenti diversi
+            // Checks may run via web or CLI under different user accounts.
             @chmod($file, 0666);
         }
         if (!$handle) {
-            // Senza file di blocco si procede comunque: meglio un'email doppia che nessun avviso
+            // Proceed without a lock file: a duplicate email is better than no alert.
             $this->reportProblem("impossibile creare il file di blocco in {$dir}");
             return fopen('php://memory', 'r');
         }
@@ -358,21 +358,21 @@ class QuotaService
     }
 
     /**
-     * Impostazioni in vigore per la rivista: le sue, se ha una quota
-     * personalizzata, altrimenti i valori predefiniti del sito
+     * Effective journal settings: custom values when configured,
+     * otherwise the site-wide defaults.
      */
     public function settings(int $contextId): array
     {
         return $this->isCustom($contextId) ? $this->ownSettings($contextId) : $this->defaults();
     }
 
-    /** Valori predefiniti, validi per tutte le riviste senza quota personalizzata */
+    /** Site-wide defaults for journals without custom quotas */
     public function defaults(): array
     {
         return $this->read(Application::SITE_CONTEXT_ID, self::DEFAULTS);
     }
 
-    /** Valori salvati per la rivista, anche quando non sono in vigore */
+    /** Stored journal settings, including when not currently effective */
     public function ownSettings(int $contextId): array
     {
         return $this->read($contextId, $this->defaults());
@@ -383,7 +383,7 @@ class QuotaService
         return (bool) $this->plugin->getSetting($contextId, 'custom');
     }
 
-    /** Salva i valori predefiniti del sito */
+    /** Save site-wide defaults */
     public function saveDefaults(array $settings): void
     {
         $this->write(Application::SITE_CONTEXT_ID, $settings);
@@ -391,8 +391,8 @@ class QuotaService
     }
 
     /**
-     * Salva le impostazioni della rivista. Senza quota personalizzata i suoi
-     * valori restano salvati ma non valgono, così si possono riattivare.
+     * Save journal settings. Without a custom quota, its stored
+     * values are inactive but retained for later reactivation.
      */
     public function saveSettings(int $contextId, array $settings, bool $custom = true): void
     {
@@ -419,7 +419,7 @@ class QuotaService
             $settings['mode'] = self::DEFAULTS['mode'];
         }
         $settings['warnPct'] = min(100, max(1, $settings['warnPct']));
-        // Valori enormi darebbero limiti fuori dagli interi
+        // Extremely large values could exceed integer limits.
         $settings['quotaMb'] = min(self::MAX_QUOTA_MB, $settings['quotaMb']);
         $settings['tolerancePct'] = min(self::MAX_TOLERANCE_PCT, $settings['tolerancePct']);
         return $settings;
@@ -434,10 +434,10 @@ class QuotaService
     }
 
     /**
-     * Spazio occupato. Senza $refresh usa sempre l'ultima misura salvata, anche
-     * se vecchia: le pagine non devono mai scandire il disco. Si misura solo
-     * dall'attività pianificata, al salvataggio delle impostazioni e con
-     * "Misura di nuovo". Prima della prima misura risulta 0 (mai bloccata).
+     * Used storage. Without $refresh, always use the latest stored scan,
+     * even when stale: pages must never scan the disk. Scans run
+     * only from the scheduled task, settings updates, or
+     * "Scan again". Before the first scan, usage is zero (never blocked).
      */
     public function usage(Context $context, bool $refresh = false): array
     {
@@ -451,16 +451,16 @@ class QuotaService
         return [
             'parts' => $parts,
             'computedAt' => $scannedAt,
-            // Tabelle che pesano di più nella stima del database: tabella => byte
+            // Largest tables in the database estimate: table => bytes
             'dbTables' => (array) ($this->plugin->getSetting($id, 'dbTables') ?: []),
         ];
     }
 
     /**
-     * Stima dello spazio di ogni rivista nel database. È periodica, non segue
-     * i caricamenti: si rifà con la misura completa (ogni scanHours ore o con
-     * "Misura di nuovo"), una sola volta per tutte le riviste e al massimo
-     * ogni DATABASE_MINUTES minuti.
+     * Estimate each journal's database usage. This is periodic, not
+     * triggered by uploads: recalculate with a full scan (every scanHours
+     * hours or on "Scan again"), once for all journals and no more
+     * often than every DATABASE_MINUTES minutes.
      */
     public function measureDatabase(): void
     {
@@ -489,9 +489,9 @@ class QuotaService
     }
 
     /**
-     * Ripartizione dello spazio per parte, per pagine e grafici
+     * Usage breakdown by section, for pages and charts
      *
-     * @return array elenco di ['key', 'label', 'bytes', 'size', 'counted', 'color', 'percent']
+     * @return array list of ['key', 'label', 'bytes', 'size', 'counted', 'color', 'percent']
      */
     public function breakdown(array $status): array
     {
@@ -518,7 +518,7 @@ class QuotaService
         return $result;
     }
 
-    /** Ora dell'ultima misura completa (0 se non è mai stata fatta) */
+    /** Timestamp of the latest full scan (0 if none has run) */
     private function scannedAt(Context $context): int
     {
         return (int) $this->plugin->getSetting($context->getId(), 'scannedAt');
@@ -529,23 +529,23 @@ class QuotaService
         return $this->scannedAt($context) > 0;
     }
 
-    /** Le submission che occupano più spazio: id => byte */
+    /** Largest submissions by storage usage: ID => bytes */
     public function top(Context $context): array
     {
         return $this->hasUsage($context) ? $this->ledger()->top($context->getId()) : [];
     }
 
     /**
-     * Chiede una misura completa di tutte le riviste al prossimo controllo
-     * orario (per esempio alla riattivazione: da disattivato il plugin non ha
-     * visto caricamenti e cancellazioni)
+     * Request a full scan of all journals at the next hourly check
+     * (for example after reactivation: while disabled, the plugin did not
+     * observe uploads or deletions).
      */
     public function requestFullScan(): void
     {
         $this->plugin->updateSetting(Application::SITE_CONTEXT_ID, 'scanRequestedAt', time(), 'int');
     }
 
-    /** Ogni quante ore l'attività pianificata rifà la misura completa */
+    /** Hours between full scans by the scheduled task */
     public function scanHours(): int
     {
         $hours = (int) $this->plugin->getSetting(Application::SITE_CONTEXT_ID, 'scanHours');
@@ -557,7 +557,7 @@ class QuotaService
         $this->plugin->updateSetting(Application::SITE_CONTEXT_ID, 'scanHours', max(1, $hours), 'int');
     }
 
-    /** È ora di una misura completa (con 10 minuti di margine sull'attività oraria) */
+    /** Whether a full scan is due (10-minute allowance around the hourly task) */
     public function fullScanDue(Context $context): bool
     {
         $scannedAt = $this->scannedAt($context);
@@ -567,10 +567,10 @@ class QuotaService
     }
 
     /**
-     * Rimisura solo le parti piccole (fascicoli, biblioteca, altro, file
-     * pubblici); i file delle submission si contano file per file dagli hook.
-     * OJS non avvisa i plugin quando carica questi file, quindi si rimisurano
-     * dopo ogni modifica fatta da un utente.
+     * Rescan only small sections (issues, library, other, public
+     * files); submission files are tracked individually through hooks.
+     * OJS does not notify plugins about these uploads, so rescan
+     * after each user modification.
      */
     public function refreshSmallParts(Context $context): void
     {
@@ -581,13 +581,13 @@ class QuotaService
     }
 
     /**
-     * Misura completa sul disco dei file privati (files_dir) e pubblici della
-     * rivista. Si chiama da check(), quindi mai due insieme per la stessa rivista.
+     * Full disk scan of the journal's private (files_dir) and public
+     * files. Called from check(), so scans for one journal do not overlap.
      */
     private function measure(Context $context): void
     {
-        // Una misura interrotta a metà non salva scannedAt e si ripeterebbe
-        // per sempre: su riviste grandi può superare max_execution_time
+        // An interrupted scan might not save scannedAt and would then
+        // repeat indefinitely; large journals may exceed max_execution_time.
         @set_time_limit(0);
         $startedAt = time();
         $ledger = $this->ledger();
@@ -603,14 +603,14 @@ class QuotaService
     }
 
     /**
-     * Stato della rivista rispetto alla quota.
+     * Journal status relative to its quota.
      *
-     * @param bool $refresh true per rimisurare comunque lo spazio
+     * @param bool $refresh true to remeasure storage regardless
      */
     public function status(Context $context, bool $refresh = false): array
     {
-        // Senza nuova misura lo stato non cambia nella stessa richiesta: le
-        // pagine lo chiedono più volte (blocco, intestazione, notifiche)
+        // Without a new scan, status stays unchanged during this request:
+        // pages query it repeatedly (blocking, header, notifications).
         if (!$refresh && isset($this->statusCache[$context->getId()])) {
             return $this->statusCache[$context->getId()];
         }
@@ -651,27 +651,27 @@ class QuotaService
     }
 
     /**
-     * Allinea notifiche ed email al livello attuale. Si chiama solo da check(),
-     * dentro il blocco della rivista.
+     * Synchronize notifications and email with the current level. Called
+     * only from check(), while holding the journal lock.
      *
-     * notifiedLevel è il livello più alto già comunicato per email. Un'email
-     * parte quando il livello supera notifiedLevel (e si ritenta finché non
-     * parte), oppure come promemoria ogni reminderDays giorni. Se il livello
-     * scende, notifiedLevel scende con lui solo 24 ore dopo l'ultima email:
-     * così, se l'uso oscilla intorno a una soglia, non arriva un'email a ogni
-     * passaggio.
+     * notifiedLevel is the highest level already communicated by email.
+     * Send email when the level exceeds notifiedLevel (retry until
+     * delivered), or as a reminder every reminderDays days. If the
+     * level falls, lower notifiedLevel only 24 hours after the last email
+     * to prevent repeated messages when usage oscillates around
+     * a threshold.
      */
     private function processAlerts(Context $context, array $status): void
     {
         $id = $context->getId();
-        // Con "blocca subito" la chiusura avviene alla quota: per avvisi ed
-        // email conta come il livello più alto
+        // In immediate-block mode, closure occurs at the quota and
+        // counts as the highest alert level.
         $level = $status['blocked'] ? self::LEVEL_TOLERANCE : $status['level'];
         $lastLevel = (int) $this->plugin->getSetting($id, 'lastLevel');
-        // Isteresi: lo spazio che oscilla intorno a una soglia (la stima del
-        // database cambia di poco a ogni misura) non deve togliere e ricreare
-        // gli avvisi ogni ora. Si scende di livello solo sotto la soglia meno
-        // un margine. Blocco e caricamenti seguono sempre lo stato reale.
+        // Hysteresis: usage fluctuating around a threshold (database
+        // estimates change slightly on each scan) must not remove and
+        // recreate alerts every hour. Lower the level only below the
+        // threshold minus a margin. Blocking always uses actual status.
         if ($level < $lastLevel && $status['quota'] > 0) {
             $threshold = match ($lastLevel) {
                 self::LEVEL_WARN => $status['warnLimit'],
@@ -687,8 +687,8 @@ class QuotaService
         $notifiedLevel = (int) $this->plugin->getSetting($id, 'notifiedLevel');
         $settings = $status['settings'];
 
-        // Campanella: al cambio di livello si ricreano (tornano "non lette");
-        // altrimenti si aggiungono ai nuovi manager e si tolgono agli ex manager
+        // In-app bell: recreate notifications on level changes (marking
+        // them unread); otherwise add new managers and remove former ones.
         $this->syncNotifications($context, $level, $level === $lastLevel);
         if ($level !== $lastLevel) {
             $this->plugin->updateSetting($id, 'lastLevel', $level, 'int');
@@ -702,7 +702,7 @@ class QuotaService
         $emailEnabled = match ($level) {
             self::LEVEL_WARN => $settings['notifyWarn'],
             self::LEVEL_QUOTA => $settings['notifyQuota'],
-            // Con "chiudi subito" la quota è anche la chiusura: basta una delle due spunte
+            // In immediate-block mode, reaching the quota also closes submissions: either setting suffices.
             self::LEVEL_TOLERANCE => $settings['notifyTolerance']
                 || ($settings['mode'] === self::MODE_BLOCK && $settings['notifyQuota']),
             default => false,
@@ -712,7 +712,7 @@ class QuotaService
             && $settings['reminderDays'] > 0
             && time() - $lastNotifiedAt >= $settings['reminderDays'] * 86400;
 
-        // Manager a cui l'ultima email non è arrivata: si ritenta solo con loro
+        // Managers who missed the last email: retry only for them.
         $pending = array_map('intval', (array) ($this->plugin->getSetting($id, 'emailPending') ?: []));
         if ($emailEnabled && ($risen || $reminderDue)) {
             $result = $this->sendEmails($context, $status);
@@ -720,7 +720,7 @@ class QuotaService
                 $this->plugin->updateSetting($id, 'lastNotifiedAt', time(), 'int');
                 $this->plugin->updateSetting($id, 'notifiedLevel', max($level, $notifiedLevel), 'int');
             }
-            // Se non è arrivata a nessuno, si ritenta comunque con tutti
+            // If nobody received it, retry for all managers.
             $this->savePending($id, $pending, $result['sent'] > 0 ? $result['failed'] : []);
         } elseif ($pending && $emailEnabled && $level > self::LEVEL_OK && $level <= $notifiedLevel) {
             $this->savePending($id, $pending, $this->sendEmails($context, $status, $pending)['failed']);
@@ -736,7 +736,7 @@ class QuotaService
         }
     }
 
-    /** Toglie tutti gli avvisi del plugin (per esempio quando viene disattivato) */
+    /** Remove all plugin notifications (for example, on deactivation) */
     public function clearAlerts(): void
     {
         Notification::withType(JournalQuotaPlugin::NOTIFICATION_TYPE)->delete();
@@ -746,8 +746,8 @@ class QuotaService
     }
 
     /**
-     * Una notifica (campanella di OJS) per ogni manager attuale, solo per il
-     * livello attuale. Con $keep restano quelle dei manager che già l'hanno.
+     * One OJS in-app notification per current manager, only for the
+     * current level. With $keep, retain managers' existing notifications.
      */
     private function syncNotifications(Context $context, int $level, bool $keep): void
     {
@@ -786,15 +786,15 @@ class QuotaService
     }
 
     /**
-     * Invia l'email ai manager (o solo a quelli in $only)
+     * Send email to managers (or only those listed in $only).
      *
-     * @return array ['sent' => quante sono partite, 'failed' => id dei manager non raggiunti]
+     * @return array ['sent' => number delivered, 'failed' => IDs of unreached managers]
      */
     private function sendEmails(Context $context, array $status, ?array $only = null): array
     {
         $locale = $this->locale($context);
         $template = Repo::emailTemplate()->getByKey($context->getId(), QuotaNotify::getEmailTemplateKey());
-        // Se il modello non è installato (plugin copiato via FTP) si usano i testi predefiniti
+        // If the template is not installed (plugin copied via FTP), use default text.
         $subject = $template?->getLocalizedData('subject', $locale) ?: __('emails.journalQuota.subject', [], $locale);
         $body = $template?->getLocalizedData('body', $locale) ?: __('emails.journalQuota.body', [], $locale);
 
@@ -807,7 +807,7 @@ class QuotaService
         }
         $sent = 0;
         $failed = [];
-        // Destinatari: i journal manager della rivista (chiave = id utente)
+        // Recipients: this journal's managers (keyed by user ID).
         $targets = [];
         foreach ($this->managers($context) as $user) {
             $targets[(int) $user->getId()] = $user;
@@ -826,9 +826,9 @@ class QuotaService
                 $mailable->subject($subject);
                 $mailable->body($body);
                 $mailable->setLocale($locale);
-                // OJS registra gli errori SMTP nel log senza sollevare eccezioni e
-                // Mail::send() non restituisce nulla: l'email è partita solo se
-                // Laravel ha emesso l'evento MessageSent
+                // OJS logs SMTP errors without throwing exceptions, and
+                // Mail::send() returns nothing: delivery is confirmed only when
+                // Laravel emits the MessageSent event.
                 $before = $this->delivered;
                 Mail::send($mailable);
                 if ($this->delivered > $before) {
@@ -844,7 +844,7 @@ class QuotaService
         return ['sent' => $sent, 'failed' => $failed];
     }
 
-    /** Lingua dei testi per la rivista: la primaria, se il plugin la traduce, altrimenti l'inglese */
+    /** Language for journal messages: primary locale if supported; otherwise English */
     public function locale(Context $context): string
     {
         $locale = $context->getPrimaryLocale();
@@ -868,7 +868,7 @@ class QuotaService
         ];
     }
 
-    /** Frase che spiega il livello attuale e cosa succede alle submission */
+    /** Text explaining the current level and what happens to submissions */
     public function levelMessage(array $status, ?string $locale = null): string
     {
         $params = [
@@ -884,7 +884,7 @@ class QuotaService
         return __("plugins.generic.journalQuota.level.{$key}", $params, $locale);
     }
 
-    /** Journal manager attivi della rivista */
+    /** Active journal managers */
     public function managers(Context $context): iterable
     {
         return Repo::user()->getCollector()

@@ -10,8 +10,8 @@
  *
  * @class QuotaCheckTask
  *
- * @brief Attività pianificata (ogni ora): allinea avvisi ed email al totale
- *  salvato di ogni rivista e, ogni scanHours ore, rifà la misura completa.
+ * @brief Hourly scheduled task: synchronizes alerts and emails with
+ *  each journal's stored usage and performs a full scan every scanHours hours.
  */
 
 namespace APP\plugins\generic\journalQuota\classes;
@@ -36,7 +36,7 @@ class QuotaCheckTask extends ScheduledTask
 
     protected function executeActions(): bool
     {
-        // Il pianificatore può caricare l'attività anche a plugin disattivato
+        // The scheduler may load this task even when the plugin is disabled.
         if (!$this->plugin->getEnabled(Application::SITE_CONTEXT_ID)) {
             return true;
         }
@@ -45,8 +45,8 @@ class QuotaCheckTask extends ScheduledTask
         $ok = true;
         while ($context = $contexts->next()) {
             try {
-                // Avvisi ogni ora sul totale salvato; misura completa solo quando è
-                // ora (null: un altro processo sta già controllando la rivista)
+                // Check alerts hourly against stored usage; run a full scan only when
+                // due (null means another process is already checking the journal).
                 $service->check($context, $service->fullScanDue($context));
             } catch (Throwable $e) {
                 $this->addExecutionLogEntry(
@@ -56,7 +56,7 @@ class QuotaCheckTask extends ScheduledTask
                 $ok = false;
             }
         }
-        // false fa arrivare il resoconto degli errori all'amministratore
+        // Returning false sends the error report to the administrator.
         return $ok;
     }
 }

@@ -3,7 +3,7 @@
  * Copyright (C) 2026 Stefano Natangelo
  * SPDX-License-Identifier: AGPL-3.0-only
  *
- * Campi dei limiti di una rivista o dei valori predefiniti. Parametro: $values.
+ * Journal-specific or default quota fields. Parameter: $values.
  *}
 <div class="jq-grid">
 	<label>{translate key="plugins.generic.journalQuota.settings.quotaMb"}

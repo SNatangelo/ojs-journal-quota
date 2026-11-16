@@ -3,20 +3,20 @@
 # Copyright (C) 2026 Stefano Natangelo
 # SPDX-License-Identifier: AGPL-3.0-only
 #
-# Suite automatica di journalQuota — SOLO per la copia locale (Docker).
+# Automated journalQuota suite — LOCAL Docker copy ONLY.
 #
-#   bash run.sh            tutti i test
-#   bash run.sh cli        solo i test da riga di comando
-#   bash run.sh http       solo i test HTTP
-#   bash run.sh cli avvisi un solo gruppo dei test da riga di comando
+#   bash run.sh            run all tests
+#   bash run.sh cli        run CLI tests only
+#   bash run.sh http       run HTTP tests only
+#   bash run.sh cli avvisi run one CLI test group
 #
-# Prima salva lo stato del plugin (impostazioni, registro dei file,
-# prenotazioni, notifiche) e alla fine lo rimette, anche se un test fallisce.
-# Nessuna email parte davvero.
+# First snapshots the plugin state (settings, file ledger,
+# reservations, notifications), then attempts to restore it on exit.
+# No real email messages are sent.
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 export JQLOG="${TMPDIR:-/tmp}/journalQuota-tests.log"; : > "$JQLOG"
-# Supporta sia tests/ nel repository sia la precedente struttura con cartelle affiancate.
+# Supports both tests/ in this repository and the legacy sibling-directory layout.
 if [ -f "$HERE/../version.xml" ]; then
   PLUGIN_DIR="${JQ_PLUGIN_DIR:-$HERE/..}"
   DEFAULT_LOCALE="$HERE/../../../locale"
@@ -45,7 +45,7 @@ dc exec -T ojs sh -c 'rm -rf /tmp/jqtests; mkdir -p /tmp/jqtests; chown -R www-d
 dc cp "$(cygpath -w "$HERE/cli.php")" ojs:/tmp/jqtests/cli.php >/dev/null 2>&1 || { echo "Copia della suite fallita."; exit 2; }
 dc exec -T ojs chown -R www-data:www-data /tmp/jqtests || exit 2
 
-# Sicurezza: con la posta reale attiva i test non partono
+# Safety: do not run tests when real email delivery is configured.
 MAIL=$(jqcli mail-driver | tail -1)
 if [ "$MAIL" != log ]; then
   echo "In config.inc.php [email] default = '$MAIL': i test partono solo con 'log' (nessuna email reale)."; exit 2

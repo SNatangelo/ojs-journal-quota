@@ -10,19 +10,19 @@
  *
  * @class QuotaLedger
  *
- * @brief Registro dei file contati (tabella journal_quota_files), una riga per
- *  file, con chiave il suo percorso.
+ * @brief Ledger of counted files (journal_quota_files table), one row
+ *  per file, keyed by its path.
  *
- *  Perché non ci sono corse tra caricamenti, cancellazioni e misure:
- *  - contare due volte lo stesso file (copia in un'altra fase, hook e misura
- *    completa insieme) aggiorna la stessa riga, non somma di nuovo;
- *  - ogni riga ricorda quando il file è stato visto (seen_at) o cancellato
- *    (deleted_at). Una misura sul disco iniziata nel momento S scrive solo le
- *    righe che nessuno ha toccato dopo S: se un file viene caricato o
- *    cancellato mentre la misura è in corso, vince l'hook, che è più recente;
- *  - ogni scrittura è una singola istruzione SQL condizionata, quindi non
- *    servono blocchi e nessun processo resta in attesa di un altro.
- *  Le righe cancellate restano TOMBSTONE_DAYS giorni, poi si eliminano.
+ *  Why uploads, deletions, and scans do not race:
+ *  - counting the same file twice (copy to another stage, hook and full
+ *    scan together) updates the same row instead of adding its size;
+ *  - each row records when the file was last seen (seen_at) or deleted
+ *    (deleted_at). A disk scan started at time S updates only rows
+ *    untouched since S: if a file is uploaded or deleted while the
+ *    scan runs, the newer hook event takes precedence;
+ *  - each write is a single conditional SQL statement, so
+ *    no locks or inter-process waiting are required.
+ *  Deleted rows remain for TOMBSTONE_DAYS days before cleanup.
  */
 
 namespace APP\plugins\generic\journalQuota\classes;
@@ -48,13 +48,13 @@ class QuotaLedger
     public const SCHEMA_VERSION = 2;
 
     public const PARTS = ['articles', 'issues', 'library', 'other', 'public'];
-    /** Parti senza hook di OJS, rimisurate dopo ogni modifica di un utente */
+    /** Sections without OJS hooks, remeasured after user changes */
     public const SMALL_PARTS = ['issues', 'library', 'other', 'public'];
 
-    /** Cartelle della rivista in files_dir che non contano nella quota */
+    /** Journal directories under files_dir that are excluded from the quota */
     public const EXCLUDED_DIRS = ['pln'];
 
-    /** Giorni per cui una riga cancellata resta come segno */
+    /** Number of days to retain deleted rows as tombstones */
     public const TOMBSTONE_DAYS = 2;
 
     private static bool $schemaChecked = false;
@@ -64,15 +64,15 @@ class QuotaLedger
         $this->ensureSchema();
     }
 
-    /** Ora con la precisione salvata nella tabella */
+    /** Current time with the precision stored in the table */
     public static function now(): float
     {
         return round(microtime(true), 4);
     }
 
     /**
-     * Crea la tabella se manca: l'installazione del plugin la crea, ma un
-     * aggiornamento caricato via FTP o dalla galleria potrebbe non farlo
+     * Create the table if absent: plugin installation creates it, but an
+     * update deployed via FTP or the gallery might not.
      */
     private function ensureSchema(): void
     {
@@ -83,7 +83,7 @@ class QuotaLedger
             try {
                 (new QuotaSchemaMigration())->up();
             } catch (Throwable $e) {
-                // Due richieste insieme: l'altra l'ha appena creata
+                // Concurrent requests: the other request just created the table.
                 if (!Schema::hasTable(self::TABLE) || !Schema::hasTable(QuotaSchemaMigration::RESERVATIONS)) {
                     throw $e;
                 }
@@ -99,8 +99,8 @@ class QuotaLedger
     }
 
     /**
-     * Riga di un file di files_dir, dal percorso relativo, o null se il file
-     * non appartiene a nessuna rivista o è in una cartella esclusa
+     * File-ledger row for a relative files_dir path, or null if the file
+     * does not belong to a journal or is in an excluded directory.
      */
     public static function classify(string $relative): ?array
     {
@@ -145,8 +145,8 @@ class QuotaLedger
     }
 
     /**
-     * Un file di files_dir è stato caricato: lo conta subito (o aggiorna la sua
-     * riga, se era già contato). Restituisce la rivista, o null se non conta.
+     * A file in files_dir was uploaded: count it immediately (or update
+     * its existing row). Return the journal, or null if excluded.
      */
     public function stored(string $relative): ?int
     {
@@ -167,8 +167,8 @@ class QuotaLedger
     }
 
     /**
-     * Un file di files_dir potrebbe essere stato cancellato: se non è più sul
-     * disco lascia il segno di cancellazione. Restituisce la rivista, o null.
+     * A file in files_dir may have been deleted: if it is no longer on
+     * disk, record a tombstone. Return the journal, or null.
      */
     public function removed(string $relative): ?int
     {
@@ -177,7 +177,7 @@ class QuotaLedger
             return null;
         }
         $now = self::now();
-        // Anche se la riga non c'era: il segno impedisce a una misura in corso di contarlo
+        // Even without a prior row, the tombstone prevents an ongoing scan from counting it.
         DB::table(self::TABLE)->upsert(
             [$row + ['seen_at' => $now, 'deleted_at' => $now]],
             ['path_hash'],
@@ -186,7 +186,7 @@ class QuotaLedger
         return $row['context_id'];
     }
 
-    /** Righe di una submission i cui file non sono più sul disco (submission cancellata) */
+    /** Submission rows whose files are no longer on disk (deleted submission) */
     public function removedSubmission(int $submissionId): ?int
     {
         $contextId = null;
@@ -199,13 +199,13 @@ class QuotaLedger
         return $contextId;
     }
 
-    /** Rivista cancellata: le sue righe non servono più */
+    /** Deleted journal: its ledger rows are no longer needed */
     public function dropContext(int $contextId): void
     {
         DB::table(self::TABLE)->where('context_id', $contextId)->delete();
     }
 
-    /** Byte per parte, solo dei file presenti */
+    /** Bytes per section, counting only existing files */
     public function totals(int $contextId): array
     {
         $parts = array_fill_keys(self::PARTS, 0);
@@ -224,7 +224,7 @@ class QuotaLedger
         return $parts;
     }
 
-    /** Le submission che occupano più spazio: id => byte */
+    /** Largest submissions by storage usage: ID => bytes */
     public function top(int $contextId, int $limit = 10): array
     {
         return DB::table(self::TABLE)
@@ -242,8 +242,8 @@ class QuotaLedger
     }
 
     /**
-     * Misura sul disco le parti indicate e allinea il registro. $since è
-     * l'ora d'inizio della misura: le righe toccate dopo non si modificano.
+     * Scan the selected sections and reconcile the ledger. $since is
+     * the scan start time; rows changed afterwards are left untouched.
      */
     public function sync(Context $context, array $parts): void
     {
@@ -253,7 +253,7 @@ class QuotaLedger
         $this->reconcile($context->getId(), $parts, $found, $since, $skipped);
     }
 
-    /** Elimina i segni di cancellazione vecchi */
+    /** Remove old tombstones */
     public function purge(int $contextId): void
     {
         DB::table(self::TABLE)
@@ -263,12 +263,12 @@ class QuotaLedger
     }
 
     /**
-     * Allinea il registro a ciò che la misura ha trovato.
+     * Reconcile the ledger with the scan results.
      *
-     * @param array $found path_hash => riga, per i file trovati sul disco
-     * @param array $skipped inizi dei percorsi che la misura non ha potuto
-     *  leggere (cartelle illeggibili, file senza dimensione): i loro file non
-     *  si danno per cancellati
+     * @param array $found path_hash => row, for files found on disk
+     * @param array $skipped prefixes of paths the scan could not
+     *  read (unreadable directories or files of unknown size);
+     *  their files must not be treated as deleted.
      */
     public function reconcile(int $contextId, array $parts, array $found, float $since, array $skipped = []): void
     {
@@ -277,7 +277,7 @@ class QuotaLedger
             ->whereIn('part', $parts)
             ->get(['path_hash', 'path', 'submission_id', 'bytes', 'seen_at', 'deleted_at'])
             ->keyBy('path_hash');
-        // Solo le righe che nessuno ha toccato dopo l'inizio della misura
+        // Only rows untouched since the scan started.
         $untouched = fn () => DB::table(self::TABLE)
             ->where('seen_at', '<', $since)
             ->where(fn ($q) => $q->whereNull('deleted_at')->orWhere('deleted_at', '<', $since));
@@ -304,11 +304,11 @@ class QuotaLedger
                 ]);
             }
         }
-        // Se un hook ha appena inserito la stessa riga, la sua vince
+        // If a hook just inserted the same row, its value wins.
         foreach (array_chunk($insert, 500, true) as $chunk) {
             DB::table(self::TABLE)->insertOrIgnore(array_values($chunk));
-            // Se invece l'ha inserita una misura partita prima (insieme a
-            // questa), la sua dimensione è più vecchia: vale la nostra
+            // If instead an earlier scan inserted it (concurrently with
+            // this one), its size is older, so use ours.
             $older = DB::table(self::TABLE)
                 ->whereIn('path_hash', array_column($chunk, 'path_hash'))
                 ->where('seen_at', '<', $since)
@@ -341,11 +341,11 @@ class QuotaLedger
     }
 
     /**
-     * File presenti sul disco nelle parti indicate.
+     * Files found on disk in the selected sections.
      *
-     * @param array $skipped riceve gli inizi dei percorsi non letti (vedi reconcile)
+     * @param array $skipped receives unreadable path prefixes (see reconcile)
      *
-     * @return array path_hash => riga
+     * @return array path_hash => row
      */
     public function scan(Context $context, array $parts, array &$skipped = []): array
     {
@@ -354,7 +354,7 @@ class QuotaLedger
         $journalDir = "{$filesDir}/journals/{$id}";
         $found = [];
         $privateKey = fn (string $path) => 'f:' . substr($path, strlen($filesDir) + 1);
-        // Cartella dei file non montata o non leggibile: nessun file è cancellato
+        // File directory not mounted or unreadable: do not mark files as deleted.
         if (!is_dir($filesDir) || !is_readable($filesDir) || !is_executable($filesDir)) {
             error_log("journalQuota: files_dir non raggiungibile, misura saltata: {$filesDir}");
             $skipped[] = 'f:';
@@ -418,8 +418,8 @@ class QuotaLedger
     }
 
     /**
-     * Un percorso che non risulta esistere è irraggiungibile se la prima
-     * cartella esistente sopra di lui non si può leggere o attraversare
+     * A missing path is unreachable if the nearest existing
+     * ancestor directory cannot be read or traversed.
      */
     private static function unreachable(string $path): bool
     {
@@ -430,11 +430,11 @@ class QuotaLedger
         return is_dir($dir) && !(is_readable($dir) && is_executable($dir));
     }
 
-    /** Il percorso registrato è sotto una parte che la misura non ha letto */
+    /** The stored path belongs to a section the scan could not read */
     private function isSkipped(string $path, array $skipped): bool
     {
         foreach ($skipped as $prefix) {
-            // "f:" o "p:": tutta la parte privata o pubblica
+            // "f:" or "p:": the entire private or public section
             if (str_ends_with($prefix, ':') && str_starts_with($path, $prefix)) {
                 return true;
             }
@@ -446,9 +446,9 @@ class QuotaLedger
     }
 
     /**
-     * Chiama $fn per ogni file sotto $path (o per $path, se è un file) e
-     * $skip per ogni cartella che non si è potuta leggere: i file che contiene
-     * non si devono dare per cancellati. Una cartella che non esiste è vuota.
+     * Call $fn for each file under $path (or for $path if it is a file),
+     * and $skip for each unreadable directory; files inside it
+     * must not be treated as deleted. A missing directory is empty.
      */
     private static function walk(string $path, callable $fn, callable $skip): void
     {
@@ -457,8 +457,8 @@ class QuotaLedger
             return;
         }
         if (!is_dir($path)) {
-            // Assente davvero, o nascosta da una cartella sopra che non si
-            // può attraversare? Nel secondo caso i file non sono cancellati.
+            // Is it truly absent, or hidden by an ancestor directory that
+            // cannot be traversed? In the latter case, files are not deleted.
             if (self::unreachable($path)) {
                 error_log("journalQuota: cartella non raggiungibile, misura incompleta: {$path}");
                 $skip($path);
@@ -499,7 +499,7 @@ class QuotaLedger
         return $bytes === false ? null : (int) $bytes;
     }
 
-    /** Contenuto diretto di una cartella; vuoto se non esiste o non è leggibile */
+    /** Direct contents of a directory; empty if missing or unreadable */
     private static function entries(string $dir): array
     {
         try {

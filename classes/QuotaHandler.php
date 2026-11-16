@@ -10,7 +10,7 @@
  *
  * @class QuotaHandler
  *
- * @brief Pagina "Spazio" per i journal manager: consumo, limiti e dettaglio.
+ * @brief Journal managers' "Disk Space" page: usage, limits, and details.
  */
 
 namespace APP\plugins\generic\journalQuota\classes;
@@ -53,16 +53,16 @@ class QuotaHandler extends Handler
         $context = $request->getContext();
         $service = $this->plugin->service();
 
-        // "Misura di nuovo": nuova misura e avvisi allineati subito, ma non più
-        // di una volta al minuto, perché la scansione del disco è pesante
+        // "Scan again": refresh usage and alerts immediately, but no more
+        // than once per minute because disk scans are expensive.
         $refresh = $request->isPost() && $request->checkCSRF() && $request->getUserVar('refresh')
             && time() - $service->usage($context)['computedAt'] >= 60;
-        // Se un altro processo sta già misurando, si mostra l'ultima misura
+        // If another process is already scanning, show the last saved result.
         if ($refresh) {
             $service->check($context, true);
         }
         if ($request->isPost()) {
-            // Dopo la misura si torna alla pagina: ricaricarla non rimisura
+            // Redirect back after scanning so refreshing the page does not rescan.
             $request->redirectUrl($request->url(null, JournalQuotaPlugin::PAGE));
             return;
         }
@@ -96,7 +96,7 @@ class QuotaHandler extends Handler
             'quotaBreakdown' => $service->breakdown($status),
             'quotaBreakdownTemplate' => $this->plugin->getTemplateResource('breakdown.tpl'),
             'quotaDbTables' => array_map($format, $status['usage']['dbTables']),
-            // L'amministratore può passare alla panoramica di tutte le riviste
+            // Site administrators can open the overview of all journals.
             'quotaOverviewUrl' => Validation::isSiteAdmin()
                 ? $dispatcher->url($request, Application::ROUTE_PAGE, 'index', JournalQuotaPlugin::PAGE)
                 : null,

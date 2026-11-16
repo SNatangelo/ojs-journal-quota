@@ -6,15 +6,15 @@
  */
 
 /**
- * Test automatici di journalQuota da riga di comando (solo copia locale).
+ * Automated journalQuota CLI tests (local copy only).
  *
- * Si esegue nel container, come www-data, tramite run.sh:
- *   php cli.php test [gruppo]      tutti i test (o solo un gruppo)
- *   php cli.php snapshot|restore   salva / rimette lo stato del plugin
- *   php cli.php <aiuto> ...        comandi usati da http.sh
+ * Run inside the container as www-data through run.sh:
+ *   php cli.php test [group]        all tests (or one group)
+ *   php cli.php snapshot|restore   save/restore plugin state
+ *   php cli.php <helper> ...        commands used by http.sh
  *
- * Nessuna email parte davvero: le email dei test vanno al mailer "array"
- * di Laravel, che le tiene in memoria.
+ * No real email is sent: test messages go to Laravel's "array"
+ * mailer, which holds them in memory.
  */
 
 use APP\core\Application;
@@ -46,11 +46,11 @@ class JqTests extends CommandLineTool
     private int $pass = 0;
     private int $fail = 0;
     private array $failures = [];
-    /** Rivista con submission per i test sui file (ECAIR) */
+    /** Journal with submissions for file tests (ECAIR) */
     private int $filesCtx;
-    /** Rivista per avvisi e prenotazioni (spazio finto) */
+    /** Journal for alerts and reservations (synthetic usage) */
     private int $alertCtx;
-    /** Rivista per i test sulle cartelle (crecer) */
+    /** Journal for directory tests (crecer) */
     private int $dirCtx;
 
     public function execute()
@@ -63,7 +63,7 @@ class JqTests extends CommandLineTool
         $args = array_slice($this->argv, 1);
         switch ($cmd) {
             case 'test':
-                // Per sicurezza tutte le email dei test vanno al mailer finto
+                // For safety, route all test email through the fake mailer.
                 $this->useMailer('array');
                 $this->runTests($args[0] ?? null);
                 break;
@@ -112,7 +112,7 @@ class JqTests extends CommandLineTool
     }
 
     // ------------------------------------------------------------------
-    // Piccolo motore di test
+    // Minimal test runner
 
     private function ok(bool $cond, string $name, string $detail = ''): void
     {
@@ -175,13 +175,13 @@ class JqTests extends CommandLineTool
     }
 
     // ------------------------------------------------------------------
-    // Aiuti
+    // Helpers
 
-    /** Servizio nuovo, come in una nuova richiesta */
+    /** Fresh service instance, as in a new request */
     private function svc(): QuotaService
     {
         Cache::flush();
-        // Anche il servizio interno del plugin (usato dagli hook) riparte da zero
+        // Also reset the plugin's internal service instance (used by hooks).
         $prop = new ReflectionProperty($this->p, 'service');
         $prop->setValue($this->p, null);
         return new QuotaService($this->p);
@@ -198,10 +198,10 @@ class JqTests extends CommandLineTool
         return $this->svc()->ledger()->totals($id);
     }
 
-    /** Tutto lo spazio della rivista in una riga finta del registro */
+    /** Represent all journal usage with one synthetic ledger row */
     private function fakeUsage(int $id, int $bytes): void
     {
-        // Solo la riga finta: niente parte pubblica né database
+        // Only the synthetic row: no public section or database usage.
         $this->setSettings($id, ['countPublic' => false, 'countDatabase' => false]);
         DB::table(QuotaLedger::TABLE)->where('context_id', $id)->delete();
         DB::table(QuotaLedger::TABLE)->insert(['context_id' => $id, 'path_hash' => sha1('jqtest-fake'),
@@ -230,7 +230,7 @@ class JqTests extends CommandLineTool
         DB::table(QuotaSchemaMigration::RESERVATIONS)->where('context_id', $id)->where('token', '!=', "lock-{$id}")->delete();
     }
 
-    /** Mailer finto ("array" di Laravel): le email non escono, ma risultano consegnate */
+    /** Fake mailer (Laravel "array"): messages stay in memory but count as delivered */
     private function useMailer(string $kind): void
     {
         $cfg = app('config');
@@ -238,7 +238,7 @@ class JqTests extends CommandLineTool
             $cfg->set('mail.mailers.array', ['transport' => 'array']);
             $cfg->set('mail.default', 'array');
         } else {
-            // Server SMTP irraggiungibile: porta chiusa in locale, nessuna credenziale
+            // Unreachable SMTP server: closed local port, no credentials.
             $cfg->set('mail.mailers.jqdown', ['transport' => 'smtp', 'host' => '127.0.0.1', 'port' => 9,
                 'encryption' => null, 'username' => null, 'password' => null, 'timeout' => 2]);
             $cfg->set('mail.default', 'jqdown');
@@ -248,7 +248,7 @@ class JqTests extends CommandLineTool
         Mail::clearResolvedInstances();
     }
 
-    /** Destinatari delle email arrivate al mailer finto */
+    /** Recipients of messages delivered to the fake mailer */
     private function sentTo(): array
     {
         $to = [];
@@ -274,7 +274,7 @@ class JqTests extends CommandLineTool
     }
 
     // ------------------------------------------------------------------
-    // Test
+    // Tests
 
     private function testSchema(): void
     {
@@ -292,7 +292,7 @@ class JqTests extends CommandLineTool
             $id = $context->getId();
             $this->svc()->check($context, true);
             $ledger = $this->totals($id);
-            // Conto indipendente: ogni file del disco classificato con le stesse regole
+            // Independent count: classify every disk file using the same rules.
             $disk = ['articles' => 0, 'issues' => 0, 'library' => 0, 'other' => 0, 'public' => 0];
             foreach (["{$filesDir}/journals/{$id}", "{$filesDir}/contexts/{$id}"] as $root) {
                 if (!is_dir($root)) {
@@ -385,7 +385,7 @@ class JqTests extends CommandLineTool
             $ledger->stored($gone);
             $base = $this->totals($cid)['articles'];
 
-            // Misura iniziata; durante la misura: un caricamento e una cancellazione (con hook)
+            // Scan started; upload and delete a file (via hooks) while it runs.
             $since = QuotaLedger::now();
             usleep(20000);
             $found = $ledger->scan($ctx, QuotaLedger::PARTS);
@@ -400,7 +400,7 @@ class JqTests extends CommandLineTool
             $this->svc()->check($ctx, true);
             $this->eq(0, $this->totals($cid)['articles'] - $base, 'file sparito senza hook: tolto alla misura successiva');
 
-            // Due misure delle parti piccole in parallelo, con un file aggiunto in mezzo
+            // Run two small-section scans with a file added between them.
             $pubDir = "/var/www/html/public/journals/{$cid}";
             @mkdir($pubDir, 0775, true);
             $pub = "{$pubDir}/jqtest-race.bin";
@@ -459,7 +459,7 @@ class JqTests extends CommandLineTool
         $this->eq(12, QuotaLedger::classify('journals/3/articles/12/a.pdf')['submission_id'] ?? null, 'submission ricavata dal percorso');
         $this->eq('issues', QuotaLedger::classify('journals/3/issues/4/a.pdf')['part'] ?? null, 'file di fascicolo riconosciuto');
 
-        // Prestazioni: solo un controllo largo, per accorgersi di un peggioramento grave
+        // Performance: a broad threshold to detect severe regressions.
         $s = $this->svc();
         $t = microtime(true);
         for ($i = 0; $i < 100; $i++) {
@@ -557,7 +557,7 @@ class JqTests extends CommandLineTool
         return $e;
     }
 
-    /** Un processo del test di concorrenza: aspetta l'istante comune e prenota */
+    /** Concurrency-test worker: wait for the common start time and reserve space */
     private function worker(float $at, int $id, int $bytes): void
     {
         $ctx = $this->ctx($id);
@@ -669,7 +669,7 @@ class JqTests extends CommandLineTool
         $st = $at(115);
         $this->eq([3, $n, true], [$level(), count($this->sentTo()), $st['blocked']], 'tolleranza superata: livello 3, email, rivista chiusa');
 
-        // Server di posta irraggiungibile: nessuna email risulta inviata, si ritenta
+        // Unreachable mail server: nothing is marked sent, so delivery is retried.
         $this->clearAlertState($id);
         $this->useMailer('down');
         $at(85);
@@ -682,25 +682,25 @@ class JqTests extends CommandLineTool
         $at(85);
         $this->eq(0, count($this->sentTo()), 'una sola volta');
 
-        // Solo il manager a cui non era arrivata
+        // Only the manager who did not receive the message.
         $first = array_key_first($managers);
         $this->p->updateSetting($id, 'emailPending', [$first], 'object');
         $at(85);
         $this->eq([$managers[$first]], $this->sentTo(), 'si ritenta solo con il manager a cui non era arrivata');
 
-        // Con "chiudi subito" basta la spunta "alla quota"
+        // In immediate-block mode, the "at quota" notification setting is sufficient.
         $this->clearAlertState($id);
         $this->setSettings($id, ['mode' => 'block', 'notifyTolerance' => false, 'notifyQuota' => true]);
         $at(101);
         $this->eq($n, count($this->sentTo()), 'chiudi subito: email alla quota anche senza la spunta "alla chiusura"');
 
-        // Email disattivate
+        // Email notifications disabled
         $this->clearAlertState($id);
         $this->setSettings($id, ['mode' => 'grace', 'notifyWarn' => false]);
         $at(85);
         $this->eq([1, $n, 0], [$level(), $notifs(), count($this->sentTo())], 'email di avviso disattivata: solo la campanella');
 
-        // Plugin disattivato: niente campanelle
+        // Plugin disabled: no in-app notifications.
         $this->p->setEnabled(false);
         $this->eq(0, $notifs(), 'plugin disattivato: le notifiche spariscono');
         $this->p->setEnabled(true);
@@ -726,7 +726,7 @@ class JqTests extends CommandLineTool
         $this->eq(true, $this->p->isBlocked($ctx), 'rivista chiusa');
         $this->eq(false, (bool) $ctx->getData('disableSubmissions'), 'l\'impostazione di OJS "submission disattivate" non viene toccata');
 
-        // Un controllo già in corso: il secondo si salta (niente email doppie)
+        // A check is already running: skip the second to avoid duplicate email.
         $s = $this->svc();
         $lock = (new ReflectionMethod($s, 'lock'))->invoke($s, $id);
         $this->eq(null, $this->svc()->check($ctx, false), 'controllo già in corso sulla stessa rivista: saltato');
@@ -750,7 +750,7 @@ class JqTests extends CommandLineTool
     }
 
     // ------------------------------------------------------------------
-    // Stato: salvato prima dei test e rimesso dopo
+    // State saved before tests and restored afterwards
 
     private function snapshot(): void
     {
@@ -796,7 +796,7 @@ class JqTests extends CommandLineTool
     }
 
     // ------------------------------------------------------------------
-    // Aiuti per http.sh
+    // Helpers for http.sh
 
     private function tempFile(int $userId, int $bytes): int
     {

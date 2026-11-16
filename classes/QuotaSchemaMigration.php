@@ -10,12 +10,12 @@
  *
  * @class QuotaSchemaMigration
  *
- * @brief Tabella journal_quota_files: una riga per ogni file contato.
+ * @brief journal_quota_files table: one row for each counted file.
  *
- *  La chiave è il percorso del file (path_hash), quindi contare due volte lo
- *  stesso file aggiorna la stessa riga invece di sommarlo di nuovo. Un file
- *  cancellato non sparisce subito: resta con deleted_at, così una misura
- *  completa iniziata prima della cancellazione non lo fa ricomparire.
+ *  The file path (path_hash) is the key, so counting the same file twice
+ *  updates its row instead of adding its size again. Deleted files
+ *  remain temporarily with deleted_at set, preventing a full scan
+ *  started before deletion from bringing them back.
  */
 
 namespace APP\plugins\generic\journalQuota\classes;
@@ -28,10 +28,10 @@ class QuotaSchemaMigration extends Migration
 {
     public const TABLE = 'journal_quota_files';
 
-    /** Spazio prenotato dai caricamenti in corso (e una riga di blocco per rivista) */
+    /** Storage reserved by active uploads (and one lock row per journal) */
     public const RESERVATIONS = 'journal_quota_reservations';
 
-    /** Si può eseguire più volte: crea le tabelle solo se mancano */
+    /** Safe to run repeatedly: creates tables only when absent */
     public function up(): void
     {
         if (!Schema::hasTable(self::RESERVATIONS)) {
@@ -49,17 +49,17 @@ class QuotaSchemaMigration extends Migration
         Schema::create(self::TABLE, function (Blueprint $table) {
             $table->bigIncrements('quota_file_id');
             $table->bigInteger('context_id');
-            // sha1 della chiave del file ("f:" + percorso in files_dir, "p:" + percorso pubblico)
+            // SHA-1 of the file key ("f:" + files_dir path, "p:" + public path)
             $table->char('path_hash', 40);
             $table->string('path', 1024);
             $table->string('part', 16);
             $table->bigInteger('submission_id')->nullable();
             $table->bigInteger('bytes');
-            // Momento (microsecondi) dell'ultima conferma, da un hook o da una misura completa
+            // Timestamp (microseconds) of the latest confirmation by a hook or full scan
             $table->decimal('seen_at', 16, 4);
             $table->decimal('deleted_at', 16, 4)->nullable();
             $table->unique(['path_hash'], 'journal_quota_files_path');
-            // Copre la somma per parte: il totale si legge dal solo indice
+            // Covers per-part sums: the total can be read from the index alone
             $table->index(['context_id', 'deleted_at', 'part', 'bytes'], 'journal_quota_files_context');
             $table->index(['submission_id'], 'journal_quota_files_submission');
         });
