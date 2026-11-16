@@ -23,6 +23,20 @@ Site administrators set storage limits and monitor all journals in one place. Jo
 - Immediate accounting for supported file changes, periodic full reconciliation and database-backed reservations for concurrent uploads.
 - English and Italian interfaces.
 
+## Screenshots and user guide
+
+The screenshots below use fictional journals, users and submissions from a local OJS 3.5 test installation. They do not show hosted journals or production data.
+
+**Site administrator — all journals at a glance**
+
+![Journal Quota site overview with each journal's storage usage and status](docs/images/02-overview.png)
+
+**Journal manager — disk space and an enforced limit**
+
+![Journal manager's Disk Space page showing usage, largest submissions and a closed quota](docs/images/06-manager-disk-space-closed.png)
+
+See the [illustrated user guide](docs/user-guide.md) for per-journal settings, default limits, warnings, notifications, email templates and the submission experience.
+
 ## Compatibility
 
 Version **1.0.0** was developed for **OJS 3.5.0-6**. It is installed and functioning on **JSENetwork with MySQL**; development testing used a separate local OJS 3.5.0-6 Docker installation with MariaDB/InnoDB.
