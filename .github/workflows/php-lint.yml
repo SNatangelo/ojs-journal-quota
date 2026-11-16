@@ -32,7 +32,7 @@ jobs:
       - name: Check file copyright and SPDX headers
         run: |
           while IFS= read -r -d '' path; do
-            [[ "$path" == "LICENSE" ]] && continue
+            [[ "$path" == "LICENSE" || "$path" == docs/images/*.png ]] && continue
             head -n 20 "$path" | grep -Fq "$path" || { echo "Missing file identifier: $path"; exit 1; }
             head -n 20 "$path" | grep -Fq 'Copyright (C) 2026 Stefano Natangelo' || { echo "Missing copyright: $path"; exit 1; }
             head -n 20 "$path" | grep -Fq 'SPDX-License-Identifier: AGPL-3.0-only' || { echo "Missing SPDX: $path"; exit 1; }
