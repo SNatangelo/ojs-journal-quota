@@ -35,6 +35,14 @@ use PKP\plugins\Hook;
 use PKP\plugins\PluginRegistry;
 use PKP\submissionFile\SubmissionFile;
 
+require __DIR__ . '/guard.php';
+try {
+    jqSafetyGuard($argv[1] ?? 'test');
+} catch (Throwable $error) {
+    fwrite(STDERR, "Journal Quota safety check: " . $error->getMessage() . "\n");
+    exit(2);
+}
+
 require('/var/www/html/tools/bootstrap.php');
 
 const MB = 1048576;
@@ -104,6 +112,10 @@ class JqTests extends CommandLineTool
                 break;
             case 'mail-driver':
                 echo Config::getVar('email', 'default'), "\n";
+                break;
+            case 'snapshot-check':
+                jqSafetySnapshot(STATE);
+                echo "Snapshot verified.\n";
                 break;
             default:
                 fwrite(STDERR, "comando sconosciuto: {$cmd}\n");
@@ -754,24 +766,28 @@ class JqTests extends CommandLineTool
 
     private function snapshot(): void
     {
-        @mkdir(dirname(STATE), 0777, true);
+        if (file_exists(STATE)) {
+            throw new RuntimeException('A snapshot already exists; refusing to overwrite recovery state.');
+        }
         $state = [
+            '_run' => getenv('JQ_RUN_NONCE'),
+            '_instance' => getenv('JQ_TEST_INSTANCE'),
             'settings' => DB::table('plugin_settings')->where('plugin_name', strtolower($this->p->getName()))->get()->map(fn ($r) => (array) $r)->all(),
             'files' => DB::table(QuotaLedger::TABLE)->get()->map(fn ($r) => (array) $r)->all(),
             'reservations' => DB::table(QuotaSchemaMigration::RESERVATIONS)->get()->map(fn ($r) => (array) $r)->all(),
             'notifications' => DB::table('notifications')->where('type', $this->p::NOTIFICATION_TYPE)->get()->map(fn ($r) => (array) $r)->all(),
         ];
-        file_put_contents(STATE, json_encode($state));
+        $json = json_encode($state, JSON_THROW_ON_ERROR);
+        if (file_put_contents(STATE, $json, LOCK_EX) !== strlen($json)) {
+            throw new RuntimeException('Could not write the complete initial snapshot.');
+        }
+        jqSafetySnapshot(STATE);
         printf("stato salvato: %d impostazioni, %d file, %d notifiche\n", count($state['settings']), count($state['files']), count($state['notifications']));
     }
 
     private function restore(): void
     {
-        if (!is_file(STATE)) {
-            echo "nessuno stato salvato\n";
-            return;
-        }
-        $state = json_decode(file_get_contents(STATE), true);
+        $state = jqSafetySnapshot(STATE);
         DB::transaction(function () use ($state) {
             DB::table('plugin_settings')->where('plugin_name', strtolower($this->p->getName()))->delete();
             foreach (array_chunk($state['settings'], 200) as $chunk) {

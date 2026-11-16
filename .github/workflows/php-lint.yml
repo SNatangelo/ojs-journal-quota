@@ -24,8 +24,11 @@ jobs:
         run: find . -type f -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Check Bash test runner syntax
         run: |
-          bash -n tests/run.sh
-          bash -n tests/http.sh
+          for script in tests/*.sh; do bash -n "$script"; done
+      - name: Test target safeguards (no Docker, OJS or network)
+        run: bash tests/safety-test.sh
+      - name: Test PHP preflight and snapshot guards (synthetic fixtures)
+        run: php tests/preflight-test.php
       - name: Check file copyright and SPDX headers
         run: |
           while IFS= read -r -d '' path; do
