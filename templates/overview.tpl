@@ -3,10 +3,10 @@
  * Copyright (C) 2026 Stefano Natangelo
  * SPDX-License-Identifier: AGPL-3.0-only
  *
- * Pagina dell'amministratore: si sceglie una rivista dal menu e si vedono solo
- * il suo spazio e i suoi limiti; dallo stesso menu si aprono i valori
- * predefiniti. Stili e script sono nell'intestazione (QuotaSiteHandler):
- * il pannello di OJS è un'app Vue che scarta <style> e <script> nella pagina.
+ * Administrator page: select a journal to view only its disk usage
+ * and limits; the same menu also provides access to the default
+ * settings. Styles and scripts are loaded in the header (QuotaSiteHandler):
+ * the OJS dashboard is a Vue app that discards <style> and <script> tags in page content.
  *}
 {extends file="layouts/backend.tpl"}
 

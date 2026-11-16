@@ -3,7 +3,7 @@
  * Copyright (C) 2026 Stefano Natangelo
  * SPDX-License-Identifier: AGPL-3.0-only
  *
- * Pagina "Spazio" dei journal manager.
+ * Journal managers' "Disk Space" page.
  *}
 {extends file="layouts/backend.tpl"}
 

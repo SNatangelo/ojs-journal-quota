@@ -10,8 +10,8 @@
  *
  * @class QuotaNotify
  *
- * @brief Email ai journal manager quando lo spazio della rivista supera una
- *  soglia. Il testo si modifica in Workflow > Email.
+ * @brief Emails journal managers when their journal exceeds a storage
+ *  threshold. The message can be edited under Workflow > Email.
  */
 
 namespace APP\plugins\generic\journalQuota\classes;

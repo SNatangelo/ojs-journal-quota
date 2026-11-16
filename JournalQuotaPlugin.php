@@ -10,17 +10,17 @@
  *
  * @class JournalQuotaPlugin
  *
- * @brief Quota di spazio per ogni rivista. L'amministratore del sito imposta
- *  quota, tolleranza, soglia di avviso e comportamento; i journal manager
- *  vedono i consumi nella pagina "Spazio" e ricevono avvisi in OJS e via email.
+ * @brief Per-journal disk quota. The site administrator configures
+ * the quota, tolerance, warning threshold, and behavior; journal managers
+ * view usage on the "Disk Space" page and receive OJS and email alerts.
  *
- *  Quando una rivista è bloccata, il plugin attiva "Disattiva le submission"
- *  solo in memoria, per la richiesta in corso: compaiono gli avvisi standard di
- *  OJS, ma l'impostazione salvata dal manager non cambia. Oltre il limite si
- *  rifiutano anche i caricamenti di file (refuseUploads): i file si possono
- *  leggere, scaricare e cancellare, e i caricamenti riaprono appena lo spazio
- *  torna sotto il limite.
- *  L'amministratore del sito non viene mai bloccato.
+ * When a journal is blocked, the plugin sets "Disable submissions"
+ * in memory for the current request only: OJS displays its standard
+ * warnings, but the manager's stored setting remains unchanged. Above
+ * the limit, uploads are also rejected (refuseUploads): existing files
+ * can still be read, downloaded, and deleted, and uploads resume as soon
+ * as usage falls below the limit.
+ * The site administrator is never blocked.
  */
 
 namespace APP\plugins\generic\journalQuota;
@@ -56,24 +56,24 @@ use Throwable;
 
 class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
 {
-    /** Tipo delle notifiche di OJS create dal plugin */
+    /** Type of OJS notifications created by the plugin */
     public const NOTIFICATION_TYPE = Notification::NOTIFICATION_TYPE_PLUGIN_BASE + 0x51A0;
 
-    /** Pagina dei journal manager: /<rivista>/quota */
+    /** Journal manager page: /<journal>/quota */
     public const PAGE = 'quota';
 
     private ?QuotaService $service = null;
 
-    /** File (percorsi in files_dir) che una cancellazione in corso può togliere dal disco */
+    /** Files (paths under files_dir) that an ongoing deletion may remove from disk */
     private array $deleting = [];
 
-    /** Valore salvato di disableSubmissions delle riviste bloccate in questa richiesta */
+    /** Stored disableSubmissions value for journals blocked in this request */
     private array $storedDisable = [];
 
-    /** Spazio prenotato dai caricamenti di questa richiesta: rivista => codice */
+    /** Storage reserved by uploads in this request: journal => token */
     private array $reservations = [];
 
-    /** File temporanei agganciati da questa richiesta (null = non ancora letti) */
+    /** Temporary files attached by this request (null = not yet read) */
     private ?array $temporaryIds = null;
 
     /**
@@ -108,25 +108,25 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
     }
 
     /**
-     * Disattivando il plugin si tolgono le sue notifiche: senza il plugin la
-     * campanella le mostrerebbe vuote. Riattivandolo, gli avvisi ripartono.
+     * Disabling the plugin removes its notifications: without the plugin,
+     * the bell would show empty entries. Alerts resume when it is enabled.
      */
     public function setEnabled($enabled)
     {
         parent::setEnabled($enabled);
         $this->safely(fn () => $enabled
-            // Da disattivato non ha visto caricamenti e cancellazioni: misura completa al prossimo controllo
+            // Uploads and deletions were missed while disabled: run a full scan at the next check.
             ? $this->service()->requestFullScan()
             : $this->service()->clearAlerts());
     }
 
-    /** Tabella del registro dei file (QuotaLedger) */
+    /** File-ledger table (QuotaLedger) */
     public function getInstallMigration(): QuotaSchemaMigration
     {
         return new QuotaSchemaMigration();
     }
 
-    /** Vale per tutto il sito e lo configura solo l'amministratore */
+    /** Site-wide setting configurable only by the administrator */
     public function isSitePlugin(): bool
     {
         return true;
@@ -159,15 +159,15 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
             ->addSchedule(new QuotaCheckTask($this))
             ->hourly()
             ->name(QuotaCheckTask::class)
-            // Se un'esecuzione si interrompe, il blocco scade dopo 30 minuti
+            // If execution stops, the lock expires after 30 minutes.
             ->withoutOverlapping(30);
     }
 
     /**
      * @copydoc Plugin::getActions()
      *
-     * "Impostazioni" apre la pagina Spazio delle riviste (/index/quota), dove
-     * si sceglie una rivista e se ne cambiano i limiti
+     * "Settings" opens the journal storage overview (/index/quota), where
+     * an administrator selects a journal and edits its limits.
      */
     public function getActions($request, $verb)
     {
@@ -185,25 +185,25 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
     }
 
     /**
-     * Oltre il limite si rifiuta ogni caricamento di file nella rivista (file
-     * delle submission, revisioni, copyediting, fascicoli, biblioteca,
-     * immagini), e anche un caricamento che porterebbe la rivista oltre il
-     * limite. Si possono sempre leggere, scaricare e cancellare i file: appena
-     * lo spazio scende sotto il limite, i caricamenti riaprono.
+     * Reject all file uploads above the journal limit (submission
+     * files, revisions, copyediting, issues, library files, and
+     * images), including uploads that would exceed the limit.
+     * Existing files remain readable, downloadable, and deletable;
+     * uploads resume when usage falls below the limit.
      *
-     * Vale per tutte le richieste con un file allegato (API, griglie, pagine),
-     * prima che OJS lo salvi. L'amministratore del sito non viene mai bloccato.
+     * Applies to all requests carrying an uploaded file (APIs, grids, pages)
+     * before OJS saves it. Site administrators are never blocked.
      */
     public function refuseUploads(string $hookName, array $args): bool
     {
         $request = $args[0];
         $attached = $this->uploadedBytes();
-        // Caricamenti in due passaggi (biblioteca, fascicoli, immagini,
-        // importazione XML): il file temporaneo è dell'utente, non della
-        // rivista, e si aggancia alla rivista con temporaryFileId in una
-        // seconda richiesta. Si contano sempre sia gli allegati sia i file
-        // agganciati: una richiesta può avere entrambi, e OJS salva quello
-        // che vuole lui.
+        // Two-step uploads (library, issues, images, XML
+        // import): the temporary file belongs to the user, not the
+        // journal, and is attached through temporaryFileId in a
+        // second request. Count both uploaded files and attached temporary
+        // files: a request may contain both, and OJS decides which
+        // ones to save.
         $temporaryIds = $this->temporaryFileIds();
         if ($attached === null && !$temporaryIds) {
             return Hook::CONTINUE;
@@ -211,25 +211,25 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         $incoming = (int) $attached;
         try {
             $context = $request->getContext();
-            // L'immagine del profilo va nella cartella del sito, non della rivista
+            // Profile images belong to the site directory, not the journal.
             if (!$context || $this->isProfileRequest($request)) {
                 return Hook::CONTINUE;
             }
-            // Chi non è collegato (né con la sessione né con un token API)
-            // viene rifiutato da OJS: niente dettagli sulla rivista
+            // Unauthenticated users (neither session nor API token)
+            // are rejected by OJS without revealing journal details.
             $user = $this->uploader($request);
             if (!$user || $user->hasRole([Role::ROLE_ID_SITE_ADMIN], Application::SITE_CONTEXT_ID)) {
                 return Hook::CONTINUE;
             }
             if ($temporaryIds) {
-                // Solo i file temporanei di chi li aggancia: gli altri OJS li rifiuta
+                // Only include the attaching user's temporary files; OJS rejects the others.
                 $incoming += (int) DB::table('temporary_files')
                     ->whereIn('file_id', $temporaryIds)
                     ->where('user_id', $user->getId())
                     ->sum('file_size');
             }
-            // Lo spazio si prenota sotto blocco: due caricamenti nello stesso
-            // istante non possono superare insieme il limite
+            // Reserve storage under a lock: two simultaneous uploads
+            // cannot jointly exceed the limit.
             $reservation = $this->service()->reserveUpload($context, $incoming);
             if ($reservation['token'] !== null) {
                 if ($reservation['token'] !== '') {
@@ -241,7 +241,7 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
             }
             $status = $reservation['status'];
             if (!empty($reservation['busy'])) {
-                // Troppi caricamenti insieme anche dopo i tentativi: si rifiuta
+                // Too many concurrent uploads even after retries: reject the request.
                 $key = 'plugins.generic.journalQuota.upload.busy';
                 $message = __($key, ['journal' => $context->getLocalizedName()]);
             } else {
@@ -254,9 +254,9 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
                 ]);
             }
         } catch (Throwable $e) {
-            // Un problema del plugin non deve mai impedire di lavorare: il
-            // caricamento passa e l'amministratore vede l'avviso. Se però il
-            // database ha interrotto il blocco, si rifiuta (si può riprovare)
+            // A plugin failure must not prevent normal work: allow
+            // the upload and alert the administrator. However, if the
+            // database aborted the lock, reject the upload (retry is possible).
             $this->problem($e);
             if (!QuotaService::isConcurrencyError($e) || !isset($context)) {
                 return Hook::CONTINUE;
@@ -269,8 +269,8 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
     }
 
     /**
-     * Toglie la prenotazione appena il file è contato nel registro (o a fine
-     * richiesta), così lo stesso file non conta due volte
+     * Release the reservation once the file is in the ledger (or at
+     * request completion), so it is not counted twice.
      */
     private function releaseReservation(int $contextId): void
     {
@@ -282,9 +282,9 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
     }
 
     /**
-     * Chi carica: l'utente della sessione o, per le API, quello del token.
-     * Il token si decodifica qui come fa OJS, perché a questo punto OJS non
-     * l'ha ancora letto.
+     * Identify the uploader: session user or, for APIs, token owner.
+     * Decode the token here as OJS does, because OJS has not
+     * processed it yet at this point.
      */
     private function uploader($request): ?User
     {
@@ -292,9 +292,9 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         if ($user || !($request->getRouter() instanceof \PKP\core\APIRouter)) {
             return $user;
         }
-        // Come OJS: se c'è l'intestazione Authorization vale solo quella,
-        // altrimenti il parametro apiToken (alcuni server la passano a PHP
-        // solo come REDIRECT_HTTP_AUTHORIZATION)
+        // As in OJS: when the Authorization header exists, use only it;
+        // otherwise use apiToken (some servers expose that header to PHP
+        // only as REDIRECT_HTTP_AUTHORIZATION).
         $header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
         if ($header === '' && function_exists('getallheaders')) {
             $header = (string) (array_change_key_case((array) getallheaders())['authorization'] ?? '');
@@ -327,20 +327,20 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
             $user = Repo::user()->getByApiKey($apiKey);
             return $user && $user->getData('apiKeyEnabled') ? $user : null;
         } catch (Throwable) {
-            // Token non valido: lo rifiuta OJS
+            // Invalid token: let OJS reject it.
             return null;
         }
     }
 
-    /** File temporanei che la richiesta aggancia alla rivista */
+    /** Temporary files this request attaches to the journal */
     private function temporaryFileIds(): array
     {
         if ($this->temporaryIds !== null) {
             return $this->temporaryIds;
         }
         $ids = [];
-        // Anche le GET: l'importazione XML nativa scrive gli articoli con una
-        // GET che aggancia il file temporaneo caricato prima
+        // Include GET requests: OJS native XML import creates articles via
+        // a GET request that attaches a previously uploaded temporary file.
         if (PHP_SAPI !== 'cli' && ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'OPTIONS') {
             $collect = function ($value, $key) use (&$ids) {
                 if ($key === 'temporaryFileId' && is_numeric($value) && (int) $value > 0) {
@@ -349,7 +349,7 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
             };
             $form = $_REQUEST;
             array_walk_recursive($form, $collect);
-            // Le API ricevono JSON
+            // APIs receive JSON.
             if (str_contains($_SERVER['CONTENT_TYPE'] ?? '', 'json')) {
                 $body = json_decode((string) file_get_contents('php://input'), true);
                 if (is_array($body)) {
@@ -361,9 +361,9 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
     }
 
     /**
-     * Profilo utente: l'immagine del profilo si carica dalla scheda del
-     * profilo (componente tab.user.ProfileTabHandler) e va nella cartella
-     * del sito, non della rivista
+     * User profile: the profile image is uploaded from the
+     * profile tab (tab.user.ProfileTabHandler component) and belongs
+     * to the site directory, not the journal.
      */
     private function isProfileRequest($request): bool
     {
@@ -374,7 +374,7 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         return $router instanceof \PKP\core\PKPPageRouter && $router->getRequestedPage($request) === 'user';
     }
 
-    /** Byte dei file allegati alla richiesta, o null se non ce ne sono */
+    /** Bytes of files attached to the request, or null when none exist */
     private function uploadedBytes(): ?int
     {
         if (PHP_SAPI === 'cli' || empty($_FILES)) {
@@ -391,17 +391,17 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         return $found ? $bytes : null;
     }
 
-    /** Risposta nel formato che si aspetta chi ha chiesto il caricamento */
+    /** Response in the format expected by the upload caller */
     private function sendUploadRefusal($request, string $key, string $message): void
     {
         $router = $request->getRouter();
         if ($router instanceof \PKP\core\APIRouter) {
-            // Le API e il caricatore di file di OJS mostrano errorMessage
+            // APIs and the OJS file uploader display errorMessage.
             http_response_code(400);
             header('Content-Type: application/json');
             echo json_encode(['error' => $key, 'errorMessage' => $message]);
         } elseif ($router instanceof \PKP\core\PKPComponentRouter) {
-            // Griglie e moduli (biblioteca, fascicoli): risposta JSON di OJS
+            // Grids and forms (library, issues): standard OJS JSON response.
             header('Content-Type: application/json');
             echo (new JSONMessage(false, $message))->getString();
         } else {
@@ -412,7 +412,7 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
     }
 
     /**
-     * Pagina "Spazio" dei manager e blocco delle nuove submission nelle pagine
+     * Managers' "Disk Space" page and blocking of new submissions in pages
      */
     public function loadHandler(string $hookName, array $args): bool
     {
@@ -421,7 +421,7 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         $request = Application::get()->getRequest();
         $context = $request->getContext();
         if (!$context) {
-            // Senza rivista (/index/quota): panoramica dell'amministratore
+            // No journal (/index/quota): administrator overview.
             if ($page === self::PAGE) {
                 $handler = new QuotaSiteHandler($this);
                 return Hook::ABORT;
@@ -437,28 +437,28 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         try {
             $this->applyBlock($request, $context, $page);
         } catch (Throwable $e) {
-            // Un problema del plugin non deve mai rendere irraggiungibile la rivista
+            // Plugin problems must never make a journal unreachable.
             error_log('journalQuota: ' . $e->getMessage());
         }
         return Hook::CONTINUE;
     }
 
     /**
-     * Chiude le nuove submission solo in memoria, per questa richiesta.
+     * Disable new submissions in memory for this request only.
      *
-     * Solo per le richieste GET: alcune pagine (per esempio payments) salvano
-     * con updateObject() proprio l'oggetto rivista di questa richiesta, e il
-     * blocco diventerebbe permanente. Nelle impostazioni (management) il valore
-     * vero deve restare visibile, altrimenti salvando il modulo il manager lo
-     * renderebbe permanente.
+     * GET requests only: some pages (for example, payments) save
+     * this request's journal object through updateObject(), which
+     * would persist the block. In management settings, the actual
+     * value must remain visible; otherwise saving the form would
+     * make the block permanent.
      */
     private function applyBlock($request, Context $context, ?string $page): void
     {
         if ($request->isGet() && $page !== 'management' && $this->isBlocked($context)) {
             $this->storedDisable[$context->getId()] = $context->getData('disableSubmissions');
             $context->setData('disableSubmissions', true);
-            // Il TemplateManager può essere stato creato prima che il Dispatcher
-            // ricaricasse la rivista: in quel caso i template ne usano un'altra copia
+            // TemplateManager may have been created before Dispatcher
+            // reloaded the journal; templates would then use another copy.
             $templateMgr = TemplateManager::getManager($request);
             foreach (['currentContext', 'currentJournal'] as $var) {
                 $copy = $templateMgr->getTemplateVars($var);
@@ -469,7 +469,7 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         }
     }
 
-    /** Rifiuta la creazione di una nuova submission (API) se la rivista è bloccata */
+    /** Reject creation of a new submission (API) when the journal is blocked */
     public function validateSubmission(string $hookName, array $args): bool
     {
         $errors = &$args[0];
@@ -485,8 +485,8 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
     }
 
     /**
-     * Rifiuta anche l'invio di una bozza iniziata prima del blocco: per la
-     * rivista è comunque una nuova submission
+     * Also reject submission of a draft started before blocking:
+     * it is still a new submission for that journal.
      */
     public function validateSubmit(string $hookName, array $args): bool
     {
@@ -498,7 +498,7 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         return Hook::CONTINUE;
     }
 
-    /** Se il contesto bloccato viene salvato, non salva il blocco in memoria */
+    /** If the blocked context is saved, do not persist the in-memory block */
     public function keepDisableSubmissions(string $hookName, array $args): bool
     {
         $newContext = $args[0];
@@ -510,7 +510,7 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         return Hook::CONTINUE;
     }
 
-    /** Voce "Spazio" sotto Statistiche, per manager e amministratori */
+    /** "Disk Space" item under Statistics for managers and administrators */
     public function addMenuItem(string $hookName, array $args = []): bool
     {
         $request = Application::get()->getRequest();
@@ -538,7 +538,7 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         return Hook::CONTINUE;
     }
 
-    /** Riquadro "Spazio delle riviste" nella pagina Amministrazione del sito */
+    /** "Journal storage" panel on the site Administration page */
     public function addAdminPanel(string $hookName, array $args): bool
     {
         $output = &$args[2];
@@ -554,7 +554,7 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         return Hook::CONTINUE;
     }
 
-    /** Testo delle notifiche del plugin nella campanella di OJS */
+    /** Text of the plugin's notifications in the OJS bell */
     public function notificationMessage(string $hookName, array $args): bool
     {
         $notification = $args[0];
@@ -575,31 +575,31 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
     }
 
     /**
-     * Dopo una richiesta che può aver modificato file (caricamento di un file
-     * di fascicolo, della biblioteca, di un logo...) si rimisurano le parti
-     * piccole della rivista. OJS non ha hook per questi caricamenti, che passano
-     * da pagine, griglie e API: vale per ogni richiesta non GET di un utente
-     * collegato, a fine richiesta.
+     * After a request that may have changed files (issue files,
+     * library files, logos, etc.), rescan the journal's small
+     * sections. OJS has no hooks for these uploads, which occur
+     * through pages, grids, and APIs; do this after each non-GET
+     * request from an authenticated user.
      */
     private function refreshSmallPartsAfterWrites(): void
     {
-        // Le GET di solito non scrivono; fa eccezione l'importazione XML, che
-        // aggancia un file temporaneo e salva PDF dei fascicoli e copertine
-        // senza passare dagli hook dei file
+        // GET requests normally do not write; XML import is an exception:
+        // it attaches a temporary file and saves issue PDFs and covers
+        // without passing through file hooks.
         if (PHP_SAPI === 'cli' || ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS'
             || (in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD']) && !$this->temporaryFileIds())) {
             return;
         }
-        // Con un file caricato o agganciato, o una cancellazione, si rimisura
-        // subito; per le altre richieste (salvataggi automatici, azioni delle
-        // griglie) al massimo una volta al minuto per rivista, perché la
-        // misura percorre le cartelle
+        // If a file was uploaded, attached, or deleted, rescan
+        // immediately. For other requests (autosaves, grid actions),
+        // rescan at most once per minute per journal because the
+        // operation traverses directories.
         $immediate = !empty($_FILES) || $this->temporaryFileIds()
             || ($_SERVER['REQUEST_METHOD'] ?? '') === 'DELETE';
         register_shutdown_function(fn () => $this->safely(function () use ($immediate) {
             $request = Application::get()->getRequest();
             $context = $request->getContext();
-            // Anche chi lavora con un token API, che non ha una sessione
+            // Also include API-token users, who have no session.
             if (!$context || !$this->uploader($request)) {
                 return;
             }
@@ -609,21 +609,21 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         }));
     }
 
-    /** Nuovo file di una submission: lo spazio si aggiorna subito */
+    /** New submission file: update usage immediately */
     public function fileAdded(string $hookName, array $args): bool
     {
         $submissionFile = $args[0];
         $this->safely(fn () => $this->storeFile((int) $submissionFile->getData('fileId')));
-        // La prenotazione resta fino alla fine della richiesta: un'importazione
-        // XML aggiunge più file uno dopo l'altro. Fino ad allora i file già
-        // salvati contano due volte (registro e prenotazione), per prudenza.
+        // Keep the reservation until request completion: XML import
+        // adds multiple files sequentially. Until then, saved files
+        // count twice (ledger and reservation), conservatively.
         return Hook::CONTINUE;
     }
 
     /**
-     * Nuova versione di un file (revisione): il file vecchio resta sul disco.
-     * Copiare un file in un'altra fase usa lo stesso file sul disco, che ha già
-     * la sua riga nel registro: non si conta due volte.
+     * New file revision: the old file remains on disk.
+     * Copying a file to another stage uses the same disk file,
+     * which already has a ledger row, so it is not counted twice.
      */
     public function fileReplaced(string $hookName, array $args): bool
     {
@@ -635,13 +635,13 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         return Hook::CONTINUE;
     }
 
-    /** Prima della cancellazione: i file di tutte le versioni */
+    /** Before deletion: collect files from all versions */
     public function fileDeleting(string $hookName, array $args): bool
     {
         $submissionFile = $args[0];
         $this->safely(function () use ($submissionFile) {
-            // Per file: cancellando un file con file dipendenti (immagini di
-            // una bozza HTML) OJS cancella prima quelli, con le loro chiamate
+            // Per-file deletion: when a file has dependent files (such as
+            // images in an HTML draft), OJS deletes those first and calls
             foreach (Repo::submissionFile()->getRevisions($submissionFile->getId()) as $revision) {
                 $this->deleting[$submissionFile->getId()][] = (string) $revision->path;
             }
@@ -650,8 +650,8 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
     }
 
     /**
-     * Dopo la cancellazione: si tolgono solo i file che OJS ha davvero tolto
-     * dal disco (un file usato anche da una copia resta)
+     * After deletion, remove only files OJS actually deleted
+     * from disk (files shared by copies remain).
      */
     public function fileDeleted(string $hookName, array $args): bool
     {
@@ -665,7 +665,7 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         return Hook::CONTINUE;
     }
 
-    /** Submission cancellata: si tolgono i suoi file rimasti nel registro ma non più sul disco */
+    /** Deleted submission: remove ledger files no longer on disk */
     public function submissionDeleted(string $hookName, array $args): bool
     {
         $submission = $args[0];
@@ -673,7 +673,7 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         return Hook::CONTINUE;
     }
 
-    /** Rivista cancellata: si tolgono le sue righe dal registro */
+    /** Deleted journal: remove its ledger rows */
     public function contextDeleted(string $hookName, array $args): bool
     {
         $context = $args[0];
@@ -689,7 +689,7 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         }
     }
 
-    /** Un problema nel conteggio non deve mai impedire caricamenti e cancellazioni */
+    /** Accounting problems must never prevent uploads or deletions */
     private function safely(callable $fn): void
     {
         try {
@@ -699,7 +699,7 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         }
     }
 
-    /** Errore del plugin: nel log e, per l'amministratore, nella pagina Spazio */
+    /** Plugin error: log it and show it on the administrator's Disk Space page */
     private function problem(Throwable $e): void
     {
         $message = $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')';
@@ -716,7 +716,7 @@ class JournalQuotaPlugin extends GenericPlugin implements HasTaskScheduler
         return Hook::CONTINUE;
     }
 
-    /** La rivista non accetta nuove submission; l'amministratore passa sempre */
+    /** Journal rejects new submissions; administrators are always exempt */
     public function isBlocked(Context $context): bool
     {
         return !Validation::isSiteAdmin() && $this->service()->status($context)['blocked'];

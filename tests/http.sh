@@ -3,8 +3,8 @@
 # Copyright (C) 2026 Stefano Natangelo
 # SPDX-License-Identifier: AGPL-3.0-only
 #
-# Test HTTP di journalQuota sulla copia locale (http://localhost:8080).
-# Si lancia da run.sh, che salva e rimette lo stato del plugin.
+# journalQuota HTTP tests against the local copy (http://localhost:8080).
+# Invoked by run.sh, which snapshots and restores the plugin state.
 
 B=${JQ_BASE:-http://localhost:8080}
 SIDM_ID=${JQ_SIDM_ID:-2}          # rivista per i caricamenti
@@ -19,7 +19,7 @@ ok()   { PASS=$((PASS+1)); echo "  ok    $1"; }
 ko()   { FAIL=$((FAIL+1)); FAILED+=("$1"); echo "  FALLITO $1${2:+ — $2}"; }
 check(){ if eval "$2"; then ok "$1"; else ko "$1" "$3"; fi; }
 
-# Percorso in formato Windows: curl di Git Bash è un programma Windows
+# Windows-style path: the curl executable in Git Bash is a Windows program.
 W=$(cygpath -m "$(mktemp -d)")
 trap 'rm -rf "$W"' EXIT
 A="$W/admin.txt"; E="$W/editor.txt"
@@ -31,13 +31,13 @@ code() { curl -s -o "$W/body" -w '%{http_code}' "$@"; }
 body() { cat "$W/body"; }
 token(){ curl -s -b "$1" "$B/$SIDM/dashboard/editorial" | grep -o 'csrfToken":"[^"]*' | head -1 | cut -d'"' -f3; }
 db()   { (cd "$LOCALE" && docker compose exec -T db mysql -uojs -pojs ojs -N -e "$1" 2>/dev/null); }
-# Le impostazioni cambiate da riga di comando arrivano al web dopo qualche
-# secondo: la cache di OJS sta in file PHP che Apache tiene in opcache
+# CLI setting changes reach the web process after a few seconds:
+# OJS stores cached PHP files that Apache keeps in OPcache.
 setq() { local r; r=$(jqcli set-quota "$@"); sleep 3; echo "$r"; }
 BLOCKED='has exceeded its disk limit|ha superato il limite di spazio'
 TOOLARGE='only .* are left|restano solo'
 
-# --- Accesso come amministratore
+# --- Sign in as a site administrator
 PW=$(grep -o "AdminPassword = '[^']*'" "$LOCALE/import-locale.ps1" | cut -d"'" -f2)
 ADMIN=$(db "select u.username from users u join user_user_groups uug on uug.user_id=u.user_id join user_groups g on g.user_group_id=uug.user_group_id where g.role_id=1 and g.context_id is null limit 1")
 ADMIN_ID=$(db "select user_id from users where username='$ADMIN'")
@@ -118,7 +118,7 @@ c=$(code -H "Authorization: Bearer $ET" -F "file=@$W/piccolo.pdf" -F fileStage=9
 check "redattore con token (intestazione): rifiutato" '[ "$c" = 400 ] && body | grep -Eq "$BLOCKED"' "HTTP $c $(body | head -c 200)"
 c=$(code -F "file=@$W/piccolo.pdf" -F fileStage=9 -F genreId=$GENRE "$B/$SIDM/api/v1/submissions/$SUB/files?apiToken=$ET")
 check "redattore con token (nell'indirizzo): rifiutato" '[ "$c" = 400 ] && body | grep -Eq "$BLOCKED"' "HTTP $c $(body | head -c 200)"
-# (nell'indirizzo: in locale Apache non sempre passa l'intestazione Authorization a OJS)
+# (In the URL: local Apache does not always forward the Authorization header to OJS.)
 c=$(code -F "file=@$W/piccolo.pdf" -F fileStage=9 -F genreId=$GENRE "$B/$SIDM/api/v1/submissions/$SUB/files?apiToken=$AT")
 ID=$(body | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
 check "amministratore con token: passa" '[ "$c" = 200 ] && [ -n "$ID" ]' "HTTP $c $(body | head -c 200)"

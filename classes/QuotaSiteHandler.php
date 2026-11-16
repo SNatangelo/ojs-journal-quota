@@ -10,10 +10,10 @@
  *
  * @class QuotaSiteHandler
  *
- * @brief Pagina dell'amministratore (/index/quota). Si sceglie una rivista da
- *  un menu e si vedono, solo per quella, lo spazio occupato e i limiti, che si
- *  modificano sul posto. Dallo stesso menu si aprono i valori predefiniti.
- *  Mostra le ultime misure salvate e non scandisce il disco.
+ * @brief Administrator page (/index/quota): select a journal from
+ *  a menu to view and edit its usage and limits.
+ *  The same menu provides access to the default settings.
+ *  Shows the latest stored measurements without scanning the disk.
  */
 
 namespace APP\plugins\generic\journalQuota\classes;
@@ -30,10 +30,10 @@ use Throwable;
 
 class QuotaSiteHandler extends Handler
 {
-    /** Voce del menu per i valori predefiniti */
+    /** Menu entry for default settings */
     public const DEFAULTS = 'defaults';
 
-    /** Colori delle riviste nella panoramica */
+    /** Journal colors in the overview */
     public const JOURNAL_COLORS = ['#1e6fa8', '#e08a00', '#2e8b57', '#7b4fc9', '#c62828', '#00838f', '#8d6e63', '#5c6bc0'];
 
     /** @copydoc PKPHandler::_isBackendPage */
@@ -66,7 +66,7 @@ class QuotaSiteHandler extends Handler
         $menu = [];
         $selected = null;
         $usingDefaults = [];
-        // Panoramica: spazio di tutto il sito, per parte e per rivista
+        // Overview: site-wide usage by section and by journal.
         $siteParts = [];
         $shares = [];
         $states = ['blocked' => [], 'warning' => [], 'ok' => [], 'noLimit' => []];
@@ -111,13 +111,13 @@ class QuotaSiteHandler extends Handler
                     'computedAt' => $status['usage']['computedAt'] ? date('Y-m-d H:i', $status['usage']['computedAt']) : null,
                     'url' => $request->getDispatcher()->url($request, Application::ROUTE_PAGE, $context->getPath(), JournalQuotaPlugin::PAGE),
                     'custom' => $custom,
-                    // Valori della rivista, proposti quando si sceglie "personalizzati"
+                    // Journal values suggested when "custom" is selected.
                     'values' => $service->ownSettings($context->getId()),
                 ];
             }
         }
 
-        // Quota di ogni rivista sul totale del sito, dalla più grande
+        // Each journal's share of total site usage, largest first.
         $total = array_sum($siteParts);
         usort($shares, fn ($a, $b) => $b['bytes'] <=> $a['bytes']);
         foreach ($shares as $i => &$share) {
@@ -126,8 +126,8 @@ class QuotaSiteHandler extends Handler
             $share['color'] = self::JOURNAL_COLORS[$i % count(self::JOURNAL_COLORS)];
         }
         unset($share);
-        // Il totale del sito comprende tutte le parti, anche quelle che per
-        // qualche rivista non contano nella quota
+        // The site-wide total includes all sections, even those that are
+        // excluded from an individual journal's quota.
         $siteBreakdown = $service->breakdown([
             'usage' => ['parts' => $siteParts],
             'settings' => ['countPublic' => true, 'countDatabase' => true],
@@ -162,8 +162,8 @@ class QuotaSiteHandler extends Handler
     }
 
     /**
-     * Salva i limiti della rivista scelta, o i valori predefiniti, e torna
-     * alla stessa scelta
+     * Save the selected journal's limits or the defaults, then return
+     * to the same selection.
      *
      * @param array $args
      * @param PKPRequest $request
@@ -181,7 +181,7 @@ class QuotaSiteHandler extends Handler
         if ($choice === self::DEFAULTS) {
             $service->saveDefaults($settings);
             $service->saveScanHours((int) $request->getUserVar('scanHours'));
-            // I predefiniti valgono per molte riviste: avvisi e blocco di tutte
+            // Defaults affect multiple journals: update all alerts and blocks.
             $this->recheck($this->contexts());
         } else {
             $context = Application::getContextDAO()->getById((int) $choice);
@@ -196,7 +196,7 @@ class QuotaSiteHandler extends Handler
         $request->redirectUrl($this->pageUrl($request, null, ['journal' => $choice, 'saved' => 1]));
     }
 
-    /** Avvisi e blocco seguono subito i nuovi limiti; si misura solo se manca una misura */
+    /** Apply alerts and blocks immediately; measure only when no measurement exists */
     private function recheck(array $contexts): void
     {
         $service = $this->plugin->service();
@@ -209,14 +209,14 @@ class QuotaSiteHandler extends Handler
         }
     }
 
-    /** Valori inviati dal modulo */
+    /** Values submitted by the form */
     private function submitted(PKPRequest $request): array
     {
         $settings = [];
         foreach (QuotaService::DEFAULTS as $field => $default) {
             $value = $request->getUserVar($field);
             $settings[$field] = match (true) {
-                // Le caselle non spuntate non vengono inviate
+                // Unchecked checkboxes are not submitted.
                 is_bool($default) => (bool) $value,
                 is_int($default) => min(QuotaService::MAX_QUOTA_MB, max(0, (int) $value)),
                 default => (string) $value,
@@ -225,7 +225,7 @@ class QuotaSiteHandler extends Handler
         return $settings;
     }
 
-    /** Voce del menu: nome, spazio e stato, per scegliere senza aprire */
+    /** Menu option: name, usage, and status, for selection without opening */
     private function menuLabel(Context $context, array $status): string
     {
         $label = $context->getLocalizedName() . ' — ' . QuotaService::formatBytes($status['used']);
@@ -241,7 +241,7 @@ class QuotaSiteHandler extends Handler
         return $label;
     }
 
-    /** I valori predefiniti in una riga */
+    /** Default values summarized on one line */
     private function summary(array $settings): string
     {
         if ($settings['quotaMb'] <= 0) {
@@ -268,8 +268,8 @@ class QuotaSiteHandler extends Handler
     }
 
     /**
-     * Stili e script della pagina. Vanno nell'intestazione: il pannello di OJS
-     * è un'app Vue che scarta <style> e <script> dentro la pagina.
+     * Page styles and scripts belong in the header: the OJS dashboard
+     * is a Vue app that discards <style> and <script> inside page content.
      */
     private function addAssets(TemplateManager $templateMgr): void
     {
@@ -324,8 +324,8 @@ class QuotaSiteHandler extends Handler
             .jq-page details { margin-top: 0.5rem; font-size: 0.875rem; color: #555; }
             CSS, ['inline' => true, 'contexts' => 'backend']);
 
-        // Il menu apre la scelta appena cambia. Delega sul documento: Vue
-        // ricrea gli elementi della pagina dopo il caricamento.
+        // The menu navigates as soon as the selection changes. Delegate to
+        // the document because Vue recreates page elements after loading.
         $templateMgr->addJavaScript('journalQuotaOverview', <<<'JS'
             document.documentElement.classList.add('jq-js');
             document.addEventListener('change', function (e) {

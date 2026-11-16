@@ -10,19 +10,19 @@
  *
  * @class QuotaDatabase
  *
- * @brief Stima dello spazio che ogni rivista occupa nel database.
+ * @brief Estimates each journal's database storage usage.
  *
- *  Il database non dice quanto spazio occupa una singola riga, quindi la stima
- *  divide ogni tabella in proporzione alle righe: se il 30% delle righe di
- *  metrics_submission è della rivista 2, alla rivista 2 va il 30% dello spazio
- *  della tabella (dati e indici, da information_schema).
+ *  The database does not report per-row storage, so the estimate
+ *  allocates each table proportionally to its rows: if 30% of
+ *  metrics_submission rows belong to journal 2, that journal gets 30%
+ *  of the table's data and index space (from information_schema).
  *
- *  Per sapere di quale rivista è una riga si seguono le chiavi esterne fino a
- *  una colonna context_id/journal_id (per esempio parole dell'indice di
- *  ricerca → oggetto di ricerca → submission → rivista), oppure le colonne
- *  assoc_type/assoc_id dei log. Le tabelle che non portano a nessuna rivista
- *  (registro ROR, sessioni, utenti, impostazioni del sito) sono di tutto il
- *  sito e non contano per nessuna. Solo MySQL e MariaDB.
+ *  To associate rows with journals, follow foreign keys until reaching
+ *  a context_id/journal_id column (for example, search index terms
+ *  → search object → submission → journal), or use the
+ *  assoc_type/assoc_id columns in logs. Tables unrelated to journals
+ *  (ROR registry, sessions, users, site settings) are site-wide
+ *  and are excluded. MySQL and MariaDB only.
  */
 
 namespace APP\plugins\generic\journalQuota\classes;
@@ -33,12 +33,12 @@ use Throwable;
 
 class QuotaDatabase
 {
-    /** Tabelle che non si contano: il registro del plugin è un costo del plugin, non della rivista */
+    /** Excluded tables: the plugin's ledger is a plugin cost, not a journal cost */
     public const EXCLUDED_TABLES = [QuotaSchemaMigration::TABLE];
 
     private const MAX_DEPTH = 6;
 
-    /** Tipi di assoc_type e tabella/colonna a cui puntano */
+    /** assoc_type values and their target table/column */
     private const ASSOC_TARGETS = [
         Application::ASSOC_TYPE_JOURNAL => ['journals', 'journal_id'],
         Application::ASSOC_TYPE_ISSUE => ['issues', 'issue_id'],
@@ -50,7 +50,7 @@ class QuotaDatabase
     ];
 
     private array $columns = [];
-    /** Colonne che possono essere vuote: tabella => [colonna, ...] */
+    /** Nullable columns: table => [column, ...] */
     private array $nullable = [];
     private array $foreignKeys = [];
     private array $routes = [];
@@ -61,9 +61,9 @@ class QuotaDatabase
     }
 
     /**
-     * Byte stimati per rivista e, per ognuna, le tabelle più pesanti.
+     * Estimated bytes per journal and each journal's largest tables.
      *
-     * @return array contextId => ['bytes' => int, 'tables' => [tabella => byte]]
+     * @return array contextId => ['bytes' => int, 'tables' => [table => bytes]]
      */
     public function measure(): array
     {
@@ -123,10 +123,10 @@ class QuotaDatabase
     }
 
     /**
-     * Strade da una tabella a una colonna con l'id della rivista. Ogni strada è
-     * un elenco di passi: ['fk', colonna, tabella, colonna], ['assoc', tipo,
-     * tabella, colonna] e alla fine ['ctx', colonna]. Più strade quando la
-     * tabella usa assoc_type (una per tipo); altrimenti la più corta.
+     * Paths from a table to a journal-ID column. Each path is a
+     * list of steps: ['fk', column, table, column], ['assoc', type,
+     * table, column], ending with ['ctx', column]. Multiple paths are
+     * used for assoc_type tables (one per type); otherwise the shortest.
      */
     private function routes(string $table, array $visiting): array
     {
@@ -148,9 +148,9 @@ class QuotaDatabase
             }
         }
 
-        // Chiave esterna verso una tabella che porta a una rivista: si sceglie la
-        // più corta (per esempio impostazioni di un log → log → submission),
-        // preferendo le colonne sempre piene (un DOI può mancare, la submission no)
+        // Foreign key to a table linked to a journal: choose the
+        // shortest path (for example, log settings → log → submission),
+        // preferring non-null columns (a DOI may be absent; a submission cannot).
         $best = null;
         foreach ($this->foreignKeys[$table] ?? [] as [$column, $refTable, $refColumn]) {
             if ($refTable === $table) {
@@ -181,14 +181,14 @@ class QuotaDatabase
                 }
             }
         }
-        // Un risultato vuoto può dipendere dal ciclo che si sta esplorando: non si memorizza
+        // An empty result may come from the cycle currently being explored: do not cache it.
         if ($routes) {
             $this->routes[$table] = $routes;
         }
         return $routes;
     }
 
-    /** Righe della tabella per rivista, sommando le strade */
+    /** Table rows per journal, summed across paths */
     private function countByContext(string $table, array $routes): array
     {
         $counts = [];

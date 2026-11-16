@@ -3,8 +3,8 @@
  * Copyright (C) 2026 Stefano Natangelo
  * SPDX-License-Identifier: AGPL-3.0-only
  *
- * Ripartizione dello spazio di una rivista: barra a colori e legenda.
- * Parametri: $breakdown (da QuotaService::breakdown()), $dbTables (tabella => dimensione).
+ * Journal disk-usage breakdown: colored bar and legend.
+ * Parameters: $breakdown (from QuotaService::breakdown()), $dbTables (table => size).
  *}
 <div class="jq-stack" role="img" aria-label="{translate key="plugins.generic.journalQuota.page.breakdown"}" style="display: flex; height: 1.5rem; border-radius: 4px; overflow: hidden; background: #eee; margin-bottom: 0.75rem;">
 	{foreach from=$breakdown item=part}
