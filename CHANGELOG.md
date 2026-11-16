@@ -1,5 +1,12 @@
 # Changelog
 
+## Repository testing update — 2026-11-16
+
+- Published the local OJS integration and HTTP regression suite (128 checks in the reference dataset) and its fixture requirements.
+- Added the historical development test record and updated compatibility/testing documentation.
+- Added Bash syntax validation alongside PHP syntax checks in GitHub Actions.
+- Plugin version, v1.0.0 tag and installable release archive remain unchanged.
+
 ## 1.0.0 — 2026-11-15
 
 Initial public release.

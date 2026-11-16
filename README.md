@@ -17,7 +17,7 @@ The plugin is particularly useful for institutions and non-commercial hosts runn
 
 ## Compatibility
 
-Version **1.0.0** was developed for **OJS 3.5.0-6** and is **installed and functioning on JSENetwork with MySQL**. PHP syntax checks passed on PHP 8.4; additional concurrency and accounting tests were performed using MariaDB 10.11/InnoDB and isolated PHP fixtures. A complete automated end-to-end test suite inside OJS has not yet been run.
+Version **1.0.0** was developed for **OJS 3.5.0-6** and is **installed and functioning on JSENetwork with MySQL**. Development testing was performed on a local OJS 3.5.0-6 Docker installation with MariaDB/InnoDB. The repository includes an automated OJS integration and HTTP regression suite; see [Testing](#testing).
 
 Compatibility with other OJS versions and database engines beyond MySQL and MariaDB has not yet been verified.
 
@@ -37,6 +37,19 @@ The plugin creates its own database tables for the file ledger and temporary upl
 - **Quota enforcement:** in *block* mode, uploads and new submissions close at the quota; in *grace* mode, they close at the configured tolerance limit. Existing files remain available for reading, download, and deletion.
 
 The reported database component is an estimate. Full scans reconcile the ledger with the filesystem; usage can temporarily lag behind changes made outside OJS.
+
+## Testing
+
+The [automated test suite](tests/README.md) exercises the real OJS bootstrap, database, filesystem and HTTP endpoints. In the reference four-journal Docker dataset it defines **128 checks: 101 CLI and 27 HTTP**.
+
+- File accounting, submission-file creation, copying, revisions, deletion and reconciliation.
+- Quota reservations and concurrent reservation requests from separate PHP processes, in groups of 8 and 20.
+- Notification thresholds, hysteresis, reminders, recipients and mail-failure retries.
+- HTTP upload enforcement, remaining-space limits, site-administrator exemptions, API tokens, CSRF checks and HTML escaping.
+
+The [development test record](docs/development-testing.md) also documents 64 functional, integration, security and concurrency checks performed during development.
+
+**GitHub Actions checks PHP 8.4 syntax and Bash script syntax.** The integration suite is run separately against a disposable local OJS copy with the required test data; it does not provision a fresh OJS installation and is not run by GitHub Actions. The check counts describe the suite, not a GitHub Actions integration-test result. See the test README for setup, fixture assumptions and scenarios that remain manual.
 
 ## Support and contributions
 

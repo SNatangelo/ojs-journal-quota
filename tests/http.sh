@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# Test HTTP di journalQuota sulla copia locale (http://localhost:8080).
+# Si lancia da run.sh, che salva e rimette lo stato del plugin.
+
+B=${JQ_BASE:-http://localhost:8080}
+SIDM_ID=${JQ_SIDM_ID:-2}          # rivista per i caricamenti
+SIDM=${JQ_SIDM_PATH:-sidm}
+EDITOR=${JQ_EDITOR:-40}           # redattore di sidm (non amministratore)
+SUB=${JQ_SUBMISSION:-54}          # submission di sidm
+GENRE=${JQ_GENRE:-13}
+XSS_ID=${JQ_XSS_CTX:-4}
+
+PASS=0; FAIL=0; FAILED=()
+ok()   { PASS=$((PASS+1)); echo "  ok    $1"; }
+ko()   { FAIL=$((FAIL+1)); FAILED+=("$1"); echo "  FALLITO $1${2:+ — $2}"; }
+check(){ if eval "$2"; then ok "$1"; else ko "$1" "$3"; fi; }
+
+# Percorso in formato Windows: curl di Git Bash è un programma Windows
+W=$(cygpath -m "$(mktemp -d)")
+trap 'rm -rf "$W"' EXIT
+A="$W/admin.txt"; E="$W/editor.txt"
+head -c 1024 /dev/urandom > "$W/piccolo.pdf"
+head -c $((2560*1024)) /dev/urandom > "$W/grande.pdf"
+echo '<?xml version="1.0"?><issues/>' > "$W/import.xml"
+
+code() { curl -s -o "$W/body" -w '%{http_code}' "$@"; }
+body() { cat "$W/body"; }
+token(){ curl -s -b "$1" "$B/$SIDM/dashboard/editorial" | grep -o 'csrfToken":"[^"]*' | head -1 | cut -d'"' -f3; }
+db()   { (cd "$LOCALE" && docker compose exec -T db mysql -uojs -pojs ojs -N -e "$1" 2>/dev/null); }
+# Le impostazioni cambiate da riga di comando arrivano al web dopo qualche
+# secondo: la cache di OJS sta in file PHP che Apache tiene in opcache
+setq() { local r; r=$(jqcli set-quota "$@"); sleep 3; echo "$r"; }
+BLOCKED='has exceeded its disk limit|ha superato il limite di spazio'
+TOOLARGE='only .* are left|restano solo'
+
+# --- Accesso come amministratore
+PW=$(grep -o "AdminPassword = '[^']*'" "$LOCALE/import-locale.ps1" | cut -d"'" -f2)
+ADMIN=$(db "select u.username from users u join user_user_groups uug on uug.user_id=u.user_id join user_groups g on g.user_group_id=uug.user_group_id where g.role_id=1 and g.context_id is null limit 1")
+ADMIN_ID=$(db "select user_id from users where username='$ADMIN'")
+LT=$(curl -s -c "$A" -b "$A" "$B/index/login" | grep -o 'name="csrfToken" value="[^"]*' | cut -d'"' -f4)
+curl -s -c "$A" -b "$A" -o /dev/null --data-urlencode "csrfToken=$LT" --data-urlencode "username=$ADMIN" --data-urlencode "password=$PW" "$B/index/login/signIn"
+unset PW
+
+echo; echo "## Pagina dell'amministratore"
+for q in "index/quota" "index/quota?journal=$SIDM_ID" "index/quota?journal=defaults" "$SIDM/quota"; do
+  c=$(code -b "$A" "$B/$q"); check "$q risponde 200" '[ "$c" = 200 ]' "HTTP $c"
+done
+c=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/index/quota")
+check "utente non collegato mandato al login" '[[ "$c" == 302*login* ]]' "$c"
+before=$(jqcli get-setting 3 quotaMb)
+curl -s -b "$A" -o /dev/null -d "journal=3&custom=1&quotaMb=77" "$B/index/quota/save"
+check "salvataggio senza token CSRF ignorato" '[ "$(jqcli get-setting 3 quotaMb)" = "$before" ]'
+T=$(curl -s -b "$A" "$B/index/quota?journal=3" | grep -o 'name="csrfToken" value="[^"]*' | head -1 | cut -d'"' -f4)
+curl -s -b "$A" -o /dev/null --data-urlencode "csrfToken=$T" -d "journal=3&custom=1&quotaMb=77&mode=grace&warnPct=80&tolerancePct=10&reminderDays=7&notifyWarn=1&notifyQuota=1&notifyTolerance=1&countPublic=1&countDatabase=1" "$B/index/quota/save"
+check "salvataggio con token CSRF registrato" '[ "$(jqcli get-setting 3 quotaMb)" = 77 ]'
+s1=$(jqcli age-scan $SIDM_ID); sleep 3
+curl -s -b "$A" -o /dev/null "$B/$SIDM/quota?refresh=1"
+curl -s -b "$A" -o /dev/null -d refresh=1 "$B/$SIDM/quota"
+check "\"Misura di nuovo\" con GET o senza CSRF non misura" '[ "$(jqcli get-setting $SIDM_ID scannedAt)" = "$s1" ]'
+T=$(curl -s -b "$A" "$B/$SIDM/quota" | grep -o 'name="csrfToken" value="[^"]*' | head -1 | cut -d'"' -f4)
+curl -s -b "$A" -o /dev/null --data-urlencode "csrfToken=$T" -d refresh=1 "$B/$SIDM/quota"
+check "\"Misura di nuovo\" con CSRF misura" '[ "$(jqcli get-setting $SIDM_ID scannedAt)" != "$s1" ]'
+jqcli xss set $XSS_ID >/dev/null; sleep 3
+curl -s -b "$A" "$B/index/quota?journal=$XSS_ID" > "$W/xss.html"
+jqcli xss restore $XSS_ID >/dev/null
+check "nome di rivista con HTML: mostrato come testo" '! grep -q "<img src=x" "$W/xss.html" && grep -q "&lt;img src=x" "$W/xss.html"'
+check "nome di rivista con {{ }}: protetto da Vue (v-pre)" 'grep -q "v-pre" "$W/xss.html"'
+
+echo; echo "## Rivista bloccata: caricamenti del redattore"
+setq $SIDM_ID 1 block >/dev/null
+cp "$A" "$E"
+curl -s -b "$E" -c "$E" -o /dev/null "$B/$SIDM/login/signInAsUser/$EDITOR"
+TOK=$(token "$E")
+c=$(code -b "$E" -H "X-Csrf-Token: $TOK" -F "file=@$W/piccolo.pdf" -F fileStage=9 -F genreId=$GENRE -F "name[en]=jqtest.pdf" "$B/$SIDM/api/v1/submissions/$SUB/files")
+check "caricamento via API rifiutato (HTTP 400, messaggio di blocco)" '[ "$c" = 400 ] && body | grep -Eq "$BLOCKED"' "HTTP $c $(body | head -c 200)"
+code -b "$E" -F "uploadedFile=@$W/piccolo.pdf" -F "csrfToken=$TOK" "$B/$SIDM/\$\$\$call\$\$\$/grid/settings/library/library-file-admin-grid/upload-file" >/dev/null
+check "caricamento dalla griglia della biblioteca rifiutato" 'body | grep -Eq "$BLOCKED"' "$(body | head -c 200)"
+TMP=$(jqcli tempfile $EDITOR 300000)
+code -b "$E" "$B/$SIDM/management/importexport/plugin/NativeImportExportPlugin/import?temporaryFileId=$TMP&csrfToken=$TOK" >/dev/null
+check "importazione XML (GET con file temporaneo) rifiutata" 'body | grep -Eq "$BLOCKED"' "$(body | head -c 200)"
+c=$(code -b "$E" -H "X-Csrf-Token: $TOK" -H 'Content-Type: application/json' -X PUT -d "{\"coverImage\":{\"en\":{\"temporaryFileId\":$TMP,\"altText\":\"\"}}}" "$B/$SIDM/api/v1/submissions/$SUB/publications/1")
+check "file temporaneo agganciato in una richiesta JSON rifiutato" 'body | grep -Eq "$BLOCKED"' "HTTP $c $(body | head -c 200)"
+c=$(code -b "$E" "$B/$SIDM/api/v1/submissions/$SUB/files?stageId=5")
+check "lettura dei file permessa" '[ "$c" = 200 ]' "HTTP $c"
+
+echo; echo "## Spazio quasi pieno: file piccolo sì, file grande no"
+read -r used limit blocked <<<"$(setq $SIDM_ID $(( $(setq $SIDM_ID 1 block | cut -d' ' -f1) / 1048576 + 2 )) block)"
+check "rivista aperta con circa 1-2 MB liberi" '[ "$blocked" = 0 ]' "usati $used, limite $limit"
+c=$(code -b "$E" -H "X-Csrf-Token: $TOK" -F "file=@$W/piccolo.pdf" -F fileStage=9 -F genreId=$GENRE -F "name[en]=jqtest.pdf" "$B/$SIDM/api/v1/submissions/$SUB/files")
+ID=$(body | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
+check "file da 1 KB accettato" '[ "$c" = 200 ] && [ -n "$ID" ]' "HTTP $c $(body | head -c 200)"
+[ -n "$ID" ] && c=$(code -b "$E" -H "X-Csrf-Token: $TOK" -X DELETE "$B/$SIDM/api/v1/submissions/$SUB/files/$ID?stageId=4") && check "e cancellato" '[ "$c" = 200 ]' "HTTP $c"
+c=$(code -b "$E" -H "X-Csrf-Token: $TOK" -F "file=@$W/grande.pdf" -F fileStage=9 -F genreId=$GENRE -F "name[en]=jqtest.pdf" "$B/$SIDM/api/v1/submissions/$SUB/files")
+check "file da 2,5 MB rifiutato con lo spazio che resta" '[ "$c" = 400 ] && body | grep -Eq "$TOOLARGE"' "HTTP $c $(body | head -c 200)"
+c=$(code -b "$E" -H "X-Csrf-Token: $TOK" -F "file=@$W/piccolo.pdf" -F "file2=@$W/grande.pdf" -F fileStage=9 -F genreId=$GENRE -F "name[en]=jqtest.pdf" "$B/$SIDM/api/v1/submissions/$SUB/files")
+check "file piccolo + file grande nella stessa richiesta rifiutati" '[ "$c" = 400 ]' "HTTP $c $(body | head -c 200)"
+curl -s -b "$E" -c "$E" -o /dev/null "$B/$SIDM/login/signOutAsUser"
+cp "$E" "$A"   # la sessione dell'amministratore torna nel suo file
+
+echo; echo "## Chi non viene bloccato"
+setq $SIDM_ID 1 block >/dev/null
+ATOK=$(token "$A")
+c=$(code -b "$A" -H "X-Csrf-Token: $ATOK" -F "file=@$W/piccolo.pdf" -F fileStage=9 -F genreId=$GENRE -F "name[en]=jqtest.pdf" "$B/$SIDM/api/v1/submissions/$SUB/files")
+ID=$(body | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
+check "l'amministratore del sito carica anche su rivista bloccata" '[ "$c" = 200 ] && [ -n "$ID" ]' "HTTP $c"
+[ -n "$ID" ] && c=$(code -b "$A" -H "X-Csrf-Token: $ATOK" -X DELETE "$B/$SIDM/api/v1/submissions/$SUB/files/$ID?stageId=4") && check "e cancella" '[ "$c" = 200 ]' "HTTP $c"
+c=$(code -F "file=@$W/piccolo.pdf" -F fileStage=9 -F genreId=$GENRE "$B/$SIDM/api/v1/submissions/$SUB/files")
+check "utente anonimo: errore normale di OJS, non del plugin" '[ "$c" != 200 ] && ! body | grep -Eq "$BLOCKED"' "HTTP $c"
+
+echo; echo "## Token API"
+jqcli tokens set $EDITOR $ADMIN_ID > "$W/tokens"
+ET=$(grep "^$EDITOR " "$W/tokens" | cut -d' ' -f2); AT=$(grep "^$ADMIN_ID " "$W/tokens" | cut -d' ' -f2)
+c=$(code -H "Authorization: Bearer $ET" -F "file=@$W/piccolo.pdf" -F fileStage=9 -F genreId=$GENRE "$B/$SIDM/api/v1/submissions/$SUB/files")
+check "redattore con token (intestazione): rifiutato" '[ "$c" = 400 ] && body | grep -Eq "$BLOCKED"' "HTTP $c $(body | head -c 200)"
+c=$(code -F "file=@$W/piccolo.pdf" -F fileStage=9 -F genreId=$GENRE "$B/$SIDM/api/v1/submissions/$SUB/files?apiToken=$ET")
+check "redattore con token (nell'indirizzo): rifiutato" '[ "$c" = 400 ] && body | grep -Eq "$BLOCKED"' "HTTP $c $(body | head -c 200)"
+# (nell'indirizzo: in locale Apache non sempre passa l'intestazione Authorization a OJS)
+c=$(code -F "file=@$W/piccolo.pdf" -F fileStage=9 -F genreId=$GENRE "$B/$SIDM/api/v1/submissions/$SUB/files?apiToken=$AT")
+ID=$(body | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
+check "amministratore con token: passa" '[ "$c" = 200 ] && [ -n "$ID" ]' "HTTP $c $(body | head -c 200)"
+[ -n "$ID" ] && curl -s -o /dev/null -X DELETE "$B/$SIDM/api/v1/submissions/$SUB/files/$ID?stageId=4&apiToken=$AT"
+jqcli tokens clear $EDITOR $ADMIN_ID
+jqcli tempfile-clean
+
+echo; echo "HTTP: $PASS superati, $FAIL falliti"
+for f in "${FAILED[@]}"; do echo "  - $f"; done
+[ "$FAIL" = 0 ]
