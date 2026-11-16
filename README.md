@@ -1,3 +1,9 @@
+<!--
+README.md
+Copyright (C) 2026 Stefano Natangelo
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Journal Quota for OJS
 
 Journal Quota is a site-wide plugin for [Open Journal Systems (OJS)](https://pkp.sfu.ca/software/ojs/) that tracks and limits disk usage **per journal** on a shared installation.
@@ -47,7 +53,7 @@ The [automated test suite](tests/README.md) exercises the real OJS bootstrap, da
 - Notification thresholds, hysteresis, reminders, recipients and mail-failure retries.
 - HTTP upload enforcement, remaining-space limits, site-administrator exemptions, API tokens, CSRF checks and HTML escaping.
 
-The [development test record](docs/development-testing.md) also documents 64 functional, integration, security and concurrency checks performed during development.
+The [testing and validation notes](docs/testing.md) summarize the 64 documented development checks, the automated suite and its limits.
 
 **GitHub Actions checks PHP 8.4 syntax and Bash script syntax.** The integration suite is run separately against a disposable local OJS copy with the required test data; it does not provision a fresh OJS installation and is not run by GitHub Actions. The check counts describe the suite, not a GitHub Actions integration-test result. See the test README for setup, fixture assumptions and scenarios that remain manual.
 
@@ -61,4 +67,4 @@ Pull requests are welcome. Changes to `main` go through a pull request and autom
 
 Copyright © 2026 Stefano Natangelo.
 
-Licensed under the **GNU Affero General Public License, version 3 only** (`AGPL-3.0-only`). See [LICENSE](LICENSE).
+Licensed under the **GNU Affero General Public License, version 3 only** (`AGPL-3.0-only`). See [LICENSE](LICENSE). Each source and documentation file carries a copyright and SPDX header; the canonical license text is kept unchanged.

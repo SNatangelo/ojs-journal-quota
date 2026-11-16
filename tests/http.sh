@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# tests/http.sh
+# Copyright (C) 2026 Stefano Natangelo
+# SPDX-License-Identifier: AGPL-3.0-only
+#
 # Test HTTP di journalQuota sulla copia locale (http://localhost:8080).
 # Si lancia da run.sh, che salva e rimette lo stato del plugin.
 

@@ -1,5 +1,7 @@
 {**
- * plugins/generic/journalQuota/templates/overview.tpl
+ * templates/overview.tpl
+ * Copyright (C) 2026 Stefano Natangelo
+ * SPDX-License-Identifier: AGPL-3.0-only
  *
  * Pagina dell'amministratore: si sceglie una rivista dal menu e si vedono solo
  * il suo spazio e i suoi limiti; dallo stesso menu si aprono i valori

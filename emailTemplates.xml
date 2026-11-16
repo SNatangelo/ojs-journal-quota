@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  emailTemplates.xml
+  Copyright (C) 2026 Stefano Natangelo
+  SPDX-License-Identifier: AGPL-3.0-only
+-->
 <!DOCTYPE emails SYSTEM "../../../lib/pkp/dtd/emailTemplates.dtd">
 
 <emails>

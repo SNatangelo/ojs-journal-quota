@@ -1,6 +1,12 @@
+<!--
+tests/README.md
+Copyright (C) 2026 Stefano Natangelo
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # Automated OJS integration tests
 
-This suite exercises Journal Quota inside a real **OJS 3.5.0-6** Docker installation, using MariaDB/InnoDB and HTTP requests. It automates many of the scenarios in the [development test record](../docs/development-testing.md).
+This suite exercises Journal Quota inside a real **OJS 3.5.0-6** Docker installation, using MariaDB/InnoDB and HTTP requests. It automates many of the scenarios in the [testing and validation notes](../docs/testing.md).
 
 The reference dataset has four journals and defines **128 checks: 101 CLI and 27 HTTP**. The CLI count varies with the number of journals. These are suite counts, not an attached execution report.
 

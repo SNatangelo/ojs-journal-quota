@@ -1,5 +1,7 @@
 {**
- * plugins/generic/journalQuota/templates/breakdown.tpl
+ * templates/breakdown.tpl
+ * Copyright (C) 2026 Stefano Natangelo
+ * SPDX-License-Identifier: AGPL-3.0-only
  *
  * Ripartizione dello spazio di una rivista: barra a colori e legenda.
  * Parametri: $breakdown (da QuotaService::breakdown()), $dbTables (tabella => dimensione).
