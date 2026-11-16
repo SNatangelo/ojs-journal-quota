@@ -1,5 +1,7 @@
 {**
- * plugins/generic/journalQuota/templates/settingsFields.tpl
+ * templates/settingsFields.tpl
+ * Copyright (C) 2026 Stefano Natangelo
+ * SPDX-License-Identifier: AGPL-3.0-only
  *
  * Campi dei limiti di una rivista o dei valori predefiniti. Parametro: $values.
  *}

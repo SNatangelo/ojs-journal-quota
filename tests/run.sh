@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# tests/run.sh
+# Copyright (C) 2026 Stefano Natangelo
+# SPDX-License-Identifier: AGPL-3.0-only
+#
 # Suite automatica di journalQuota — SOLO per la copia locale (Docker).
 #
 #   bash run.sh            tutti i test
@@ -12,7 +16,7 @@
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 export JQLOG="${TMPDIR:-/tmp}/journalQuota-tests.log"; : > "$JQLOG"
-# Support both this repository's tests/ directory and the original sibling layout.
+# Supporta sia tests/ nel repository sia la precedente struttura con cartelle affiancate.
 if [ -f "$HERE/../version.xml" ]; then
   PLUGIN_DIR="${JQ_PLUGIN_DIR:-$HERE/..}"
   DEFAULT_LOCALE="$HERE/../../../locale"

@@ -1,3 +1,7 @@
+# locale/it/locale.po
+# Copyright (C) 2026 Stefano Natangelo
+# SPDX-License-Identifier: AGPL-3.0-only
+
 msgid ""
 msgstr ""
 "MIME-Version: 1.0\n"
