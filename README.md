@@ -74,7 +74,7 @@ php lib/pkp/tools/installPluginVersion.php plugins/generic/journalQuota/version.
 - no journal stays closed, because the plugin never saves the closed state in the journal's own settings;
 - the plugin's notifications are removed;
 - quotas, settings and the file ledger stay in the database;
-- when you enable the plugin again, it runs a full scan and resumes with the same settings.
+- when you enable the plugin again, it resumes with the same settings and schedules a full scan for the next hourly check (or use **Measure again**). Until then, quotas are enforced using the previously recorded usage, which does not include uploads or deletions made while the plugin was disabled.
 
 **Deleting** the plugin in OJS removes only its files. Its tables, settings and email template stay in the database. Nothing reads them once the plugin is gone, but you can remove them completely:
 
@@ -96,6 +96,7 @@ php lib/pkp/tools/installPluginVersion.php plugins/generic/journalQuota/version.
    ```
 
 5. Clear the data cache under **Administration → Delete Data Caches**.
+6. Optionally, delete the `journalQuota` directory inside the OJS `files_dir` (for example `files_dir/journalQuota/`). It holds only lock files such as `check-<id>.lock` and `database.lock`. They are harmless if left behind.
 
 | Removed by `uninstall.sql` | Location |
 |---|---|
@@ -105,7 +106,7 @@ php lib/pkp/tools/installPluginVersion.php plugins/generic/journalQuota/version.
 | Notifications left behind if the plugin was deleted without being disabled | `notifications`, `notification_settings` with the plugin's notification type |
 | Installed-version record | `versions` where `product = 'journalQuota'` |
 
-The plugin does not alter journal settings, submissions or files, so nothing else needs cleaning. The script was tested on the local OJS 3.5.0-6 MariaDB copy:
+The plugin does not alter journal settings, submissions or submission files. Apart from the lock directory in step 6, it leaves nothing else to clean up. The script was tested on the local OJS 3.5.0-6 MariaDB copy:
 
 - every plugin row was removed and unrelated rows were untouched;
 - a journal closed for quota reopened;
