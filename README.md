@@ -56,6 +56,63 @@ The plugin creates tables for its file ledger and temporary upload reservations.
 
 Keep the OJS task scheduler running for periodic reconciliation and notification checks.
 
+## Upgrading
+
+Install the newer release archive through the same OJS plugin management interface; OJS recognises it as an upgrade of the installed version. Quotas, settings and the file ledger are kept: the migration creates the plugin tables only when they are missing.
+
+If you replace the files by hand, complete the upgrade with:
+
+```
+php lib/pkp/tools/installPluginVersion.php plugins/generic/journalQuota/version.xml
+```
+
+## Disabling and uninstalling
+
+**Disabling** the plugin in the plugin list keeps its data:
+
+- quota checks, alerts and upload restrictions stop immediately;
+- no journal stays closed, because the plugin never saves the closed state in the journal's own settings;
+- the plugin's notifications are removed;
+- quotas, settings and the file ledger stay in the database;
+- when you enable the plugin again, it runs a full scan and resumes with the same settings.
+
+**Deleting** the plugin in OJS removes only its files. Its tables, settings and email template stay in the database. Nothing reads them once the plugin is gone, but you can remove them completely:
+
+1. Back up the OJS database.
+2. Disable the plugin. This removes its notifications.
+3. Delete the plugin in OJS, or remove `plugins/generic/journalQuota`.
+4. Run [`uninstall.sql`](uninstall.sql) against the OJS database. If your tables use a prefix, add it to the table names first.
+
+   MySQL/MariaDB:
+
+   ```
+   mysql -u USER -p DATABASE < uninstall.sql
+   ```
+
+   PostgreSQL:
+
+   ```
+   psql -U USER -d DATABASE -f uninstall.sql
+   ```
+
+5. Clear the data cache under **Administration → Delete Data Caches**.
+
+| Removed by `uninstall.sql` | Location |
+|---|---|
+| File ledger and upload reservations | tables `journal_quota_files` and `journal_quota_reservations` (dropped) |
+| Site and per-journal settings | `plugin_settings` where `plugin_name = 'journalquotaplugin'` |
+| **Disk Quota Alert** email, with any journal customisations | `email_templates_default_data`, `email_templates`, `email_templates_settings` where `email_key = 'JOURNAL_QUOTA_NOTIFY'` |
+| Notifications left behind if the plugin was deleted without being disabled | `notifications`, `notification_settings` with the plugin's notification type |
+| Installed-version record | `versions` where `product = 'journalQuota'` |
+
+The plugin does not alter journal settings, submissions or files, so nothing else needs cleaning. The script was tested on the local OJS 3.5.0-6 MariaDB copy:
+
+- every plugin row was removed and unrelated rows were untouched;
+- a journal closed for quota reopened;
+- a fresh reinstall recreated the tables and email template.
+
+`uninstall.sql` is not part of the v1.0.0 release archive; download it from this repository.
+
 ## How quota enforcement works
 
 - **Site administrators:** use the plugin settings or `/index/quota` to manage defaults and per-journal limits.
