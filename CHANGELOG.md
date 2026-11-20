@@ -6,6 +6,11 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Changelog
 
+## Log messages in English — 2026-11-20
+
+- Translated the remaining Italian server log messages (disk scans, database estimate, email failures) and the lock-file problem notice to English.
+- Plugin version, v1.0.0 tag and installable release archive remain unchanged.
+
 ## Repository documentation — 2026-11-20
 
 - Documented upgrading, disabling and complete removal of the plugin in the README.

@@ -112,7 +112,7 @@ class QuotaDatabase
                     }
                 }
             } catch (Throwable $e) {
-                error_log("journalQuota: stima del database, tabella {$table}: " . $e->getMessage());
+                error_log("journalQuota: database estimate, table {$table}: " . $e->getMessage());
             }
         }
         foreach ($result as &$entry) {
