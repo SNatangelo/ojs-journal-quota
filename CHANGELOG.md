@@ -6,6 +6,12 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Changelog
 
+## Repository documentation — 2026-11-20
+
+- Documented upgrading, disabling and complete removal of the plugin in the README.
+- Added `uninstall.sql`, which removes the plugin's tables, settings, email template, leftover notifications and version record; tested on the local OJS 3.5.0-6 MariaDB copy.
+- Plugin version, v1.0.0 tag and installable release archive remain unchanged.
+
 ## Repository maintenance — 2026-11-16
 
 - Added consistent file-path, copyright and SPDX headers throughout the tracked source and documentation, keeping the canonical LICENSE unchanged.
