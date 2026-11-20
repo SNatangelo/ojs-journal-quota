@@ -347,7 +347,7 @@ class QuotaService
         }
         if (!$handle) {
             // Proceed without a lock file: a duplicate email is better than no alert.
-            $this->reportProblem("impossibile creare il file di blocco in {$dir}");
+            $this->reportProblem("cannot create the lock file in {$dir}");
             return fopen('php://memory', 'r');
         }
         if (!flock($handle, $wait ? LOCK_EX : LOCK_EX | LOCK_NB)) {
@@ -596,7 +596,7 @@ class QuotaService
         try {
             $this->measureDatabase();
         } catch (Throwable $e) {
-            error_log('journalQuota: stima del database non riuscita: ' . $e->getMessage());
+            error_log('journalQuota: database estimate failed: ' . $e->getMessage());
         }
         $this->plugin->updateSetting($context->getId(), 'scannedAt', $startedAt, 'int');
         $this->forgetStatus($context->getId());
@@ -835,10 +835,10 @@ class QuotaService
                     $sent++;
                     array_pop($failed);
                 } else {
-                    error_log('journalQuota: invio email a ' . $user->getEmail() . ' non riuscito');
+                    error_log('journalQuota: email to ' . $user->getEmail() . ' failed');
                 }
             } catch (Throwable $e) {
-                error_log('journalQuota: invio email a ' . $user->getEmail() . ' non riuscito: ' . $e->getMessage());
+                error_log('journalQuota: email to ' . $user->getEmail() . ' failed: ' . $e->getMessage());
             }
         }
         return ['sent' => $sent, 'failed' => $failed];

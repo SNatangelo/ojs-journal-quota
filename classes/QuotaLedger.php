@@ -356,7 +356,7 @@ class QuotaLedger
         $privateKey = fn (string $path) => 'f:' . substr($path, strlen($filesDir) + 1);
         // File directory not mounted or unreadable: do not mark files as deleted.
         if (!is_dir($filesDir) || !is_readable($filesDir) || !is_executable($filesDir)) {
-            error_log("journalQuota: files_dir non raggiungibile, misura saltata: {$filesDir}");
+            error_log("journalQuota: files_dir not reachable, scan skipped: {$filesDir}");
             $skipped[] = 'f:';
         }
         $skipPrivate = function (string $path) use ($privateKey, &$skipped) {
@@ -460,13 +460,13 @@ class QuotaLedger
             // Is it truly absent, or hidden by an ancestor directory that
             // cannot be traversed? In the latter case, files are not deleted.
             if (self::unreachable($path)) {
-                error_log("journalQuota: cartella non raggiungibile, misura incompleta: {$path}");
+                error_log("journalQuota: folder not reachable, scan incomplete: {$path}");
                 $skip($path);
             }
             return;
         }
         if (!is_readable($path) || !is_executable($path)) {
-            error_log("journalQuota: cartella non leggibile, misura incompleta: {$path}");
+            error_log("journalQuota: folder not readable, scan incomplete: {$path}");
             $skip($path);
             return;
         }
@@ -475,7 +475,7 @@ class QuotaLedger
                 new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
                 function (SplFileInfo $item) use ($skip) {
                     if ($item->isDir() && !($item->isReadable() && $item->isExecutable())) {
-                        error_log('journalQuota: cartella non leggibile, misura incompleta: ' . $item->getPathname());
+                        error_log('journalQuota: folder not readable, scan incomplete: ' . $item->getPathname());
                         $skip($item->getPathname());
                         return false;
                     }
@@ -488,7 +488,7 @@ class QuotaLedger
                 }
             }
         } catch (Throwable $e) {
-            error_log("journalQuota: misura di {$path} incompleta: " . $e->getMessage());
+            error_log("journalQuota: scan of {$path} incomplete: " . $e->getMessage());
             $skip($path);
         }
     }
