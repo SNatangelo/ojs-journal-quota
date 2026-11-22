@@ -10,9 +10,11 @@ SPDX-License-Identifier: AGPL-3.0-only
 [![Release 1.0.0](https://img.shields.io/badge/release-1.0.0-blue)](https://github.com/SNatangelo/ojs-journal-quota/releases/tag/v1.0.0)
 [![AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-green)](LICENSE)
 
-Journal Quota is a site-wide plugin for [Open Journal Systems (OJS)](https://pkp.sfu.ca/software/ojs/) that tracks and limits disk usage **per journal** on a shared installation.
+Journal Quota is an open-source storage quota plugin for [Open Journal Systems (OJS)](https://pkp.sfu.ca/software/ojs/). It tracks disk usage **per journal** and enforces configurable storage limits across a shared, multi-journal OJS installation.
 
-Site administrators set storage limits and monitor all journals in one place. Journal managers can view their own usage and receive alerts before they run out of space.
+It is intended for university libraries, scholarly publishing services, and other OJS hosting providers managing multiple journals on one installation. Site administrators can set default and journal-specific quotas, monitor usage, and configure warnings or upload restrictions. Journal managers can view their own usage and receive alerts before reaching a limit. Existing files remain accessible when a quota is exceeded.
+
+**Get started:** [Download v1.0.0](https://github.com/SNatangelo/ojs-journal-quota/releases/tag/v1.0.0) · [Illustrated user guide](docs/user-guide.md) · [Report an issue](https://github.com/SNatangelo/ojs-journal-quota/issues)
 
 ## Features
 
