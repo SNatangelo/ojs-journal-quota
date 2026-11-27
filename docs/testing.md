@@ -18,7 +18,7 @@ Journal Quota **1.0.0** was developed for **OJS 3.5.0-6**. It is installed and f
 | Continuous integration | PHP 8.4 syntax, Bash syntax, source-header checks and safety-only Bash/PHP regressions | [GitHub Actions workflow](https://github.com/SNatangelo/ojs-journal-quota/blob/main/.github/workflows/php-lint.yml) |
 | Live deployment | Plugin installed and operational on JSENetwork with MySQL | Reported production deployment; not a substitute for automated production tests |
 
-The historical log records internal development revisions numbered 1.0–1.7.6. Those numbers **are not public releases**; the public version remains **1.0.0**. The log is retained in Git history for traceability, without making its internal revision-by-revision checklist the main public testing document.
+The historical log records internal development revisions numbered 1.0–1.7.6. Those numbers **are not public releases**; v1.0.0 was the initial public release. The log is retained in Git history for traceability, without making its internal revision-by-revision checklist the main public testing document.
 
 ## Automated coverage
 
@@ -46,4 +46,8 @@ The runner does not start containers or choose a fallback Compose directory. Tes
 - Production email delivery to real journal managers, complete XML issue import, profile-image exemption, and live package install/upgrade are outside the automated suite.
 - Compatibility with OJS versions other than 3.5.0-6 and databases other than MySQL/MariaDB is not yet verified.
 
-See the [test README](https://github.com/SNatangelo/ojs-journal-quota/blob/main/tests/README.md) for fixture markers, a Compose configuration fragment and run commands. Test scripts are excluded from the installable release package; the public version remains **1.0.0**.
+See the [test README](https://github.com/SNatangelo/ojs-journal-quota/blob/main/tests/README.md) for fixture markers, a Compose configuration fragment and run commands. Test scripts are excluded from the installable release package; v1.0.0 was the initial public release.
+
+## Maintenance release 1.0.0.1
+
+CI builds and verifies the allowlisted archive and records MD5 and SHA-256. Archive validation is not an OJS installation test. Before publishing, verify a fresh installation and an upgrade from v1.0.0 in a disposable OJS 3.5.0-6 fixture, then manually run the PHP syntax workflow on `main` with the `publish` input enabled. The workflow publishes only after the CI checks pass. Do not run integration tests against production.

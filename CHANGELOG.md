@@ -6,6 +6,14 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Changelog
 
+## 1.0.0.1 — Maintenance release
+
+- Adopt four-part PKP plugin version numbering.
+- Include the post-v1.0.0 English server-log messages and uninstall SQL in the installable package.
+- Document privacy and security reporting.
+- Automate allowlisted release packaging, archive verification and MD5/SHA-256 generation in CI.
+- No new quota features or schema changes are introduced by this release preparation.
+
 ## Log messages in English — 2026-11-20
 
 - Translated the remaining Italian server log messages (disk scans, database estimate, email failures) and the lock-file problem notice to English.
