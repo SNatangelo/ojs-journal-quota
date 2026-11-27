@@ -134,7 +134,7 @@ jq_preflight() {
     jq_safety_error 'Exactly one running container per fixture service is required.'; return 2;
   }
 
-  core_format='{{.Id}}|{{.State.Running}}|{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "com.docker.compose.service"}}|{{index .Config.Labels "org.jsenetwork.journal-quota.disposable"}}|{{index .Config.Labels "org.jsenetwork.journal-quota.test-instance"}}|{{len .HostConfig.ExtraHosts}}|{{len .HostConfig.Links}}|{{len .NetworkSettings.Networks}}'
+  core_format='{{.Id}}|{{.State.Running}}|{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "com.docker.compose.service"}}|{{index .Config.Labels "org.jsenetwork.journal-quota.disposable"}}|{{index .Config.Labels "org.jsenetwork.journal-quota.test-instance"}}|{{len .HostConfig.ExtraHosts}}|{{if .HostConfig.Links}}{{len .HostConfig.Links}}{{else}}0{{end}}|{{len .NetworkSettings.Networks}}'
   network_format='{{range $name, $net := .NetworkSettings.Networks}}{{printf "%s|%s|%s|" $name $net.NetworkID $net.IPAddress}}{{range $net.Aliases}}{{if eq . "db"}}db{{end}}{{end}}{{println}}{{end}}'
   ports_format='{{range $port, $bindings := .NetworkSettings.Ports}}{{range $bindings}}{{printf "%s|%s|%s\n" $port .HostIp .HostPort}}{{end}}{{end}}'
   for service in ojs db; do

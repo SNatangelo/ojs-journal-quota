@@ -294,7 +294,7 @@ class JqTests extends CommandLineTool
         $this->ok(Schema::hasTable(QuotaLedger::TABLE), 'esiste la tabella dei file (journal_quota_files)');
         $this->ok(Schema::hasTable(QuotaSchemaMigration::RESERVATIONS), 'esiste la tabella delle prenotazioni');
         $this->eq(QuotaLedger::SCHEMA_VERSION, (int) $this->p->getSetting(Application::SITE_CONTEXT_ID, 'schemaVersion'), 'versione dello schema registrata');
-        $this->eq('1.0.0', (string) simplexml_load_file(dirname((new ReflectionClass($this->p))->getFileName()) . '/version.xml')->release, 'version.xml è 1.0.0');
+        $this->eq('1.0.0.1', (string) simplexml_load_file(dirname((new ReflectionClass($this->p))->getFileName()) . '/version.xml')->release, 'version.xml è 1.0.0.1');
     }
 
     private function testMeasureVsDisk(): void

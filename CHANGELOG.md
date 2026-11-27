@@ -12,6 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 - Include the post-v1.0.0 English server-log messages and uninstall SQL in the installable package.
 - Document privacy and security reporting.
 - Automate allowlisted release packaging, archive verification and MD5/SHA-256 generation in CI.
+- Date archive entries with SOURCE_DATE_EPOCH or the HEAD commit time instead of 1970-01-01: OJS 3.5 treats templates with a zero timestamp as missing, which broke manual `tar -xzf` installations.
 - No new quota features or schema changes are introduced by this release preparation.
 
 ## Log messages in English — 2026-11-20
