@@ -7,14 +7,14 @@ SPDX-License-Identifier: AGPL-3.0-only
 # Journal Quota for OJS
 
 [![OJS 3.5.0-6](https://img.shields.io/badge/OJS-3.5.0--6-blue)](#compatibility)
-[![Release 1.0.0](https://img.shields.io/badge/release-1.0.0-blue)](https://github.com/SNatangelo/ojs-journal-quota/releases/tag/v1.0.0)
+[![Release 1.0.0](https://img.shields.io/badge/release-1.0.0.1-blue)](https://github.com/SNatangelo/ojs-journal-quota/releases/tag/v1.0.0.1)
 [![AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-green)](LICENSE)
 
 Journal Quota is an open-source storage quota plugin for [Open Journal Systems (OJS)](https://pkp.sfu.ca/software/ojs/). It tracks disk usage **per journal** and enforces configurable storage limits across a shared, multi-journal OJS installation.
 
 It is intended for university libraries, scholarly publishing services, and other OJS hosting providers managing multiple journals on one installation. Site administrators can set default and journal-specific quotas, monitor usage, and configure warnings or upload restrictions. Journal managers can view their own usage and receive alerts before reaching a limit. Existing files remain accessible when a quota is exceeded.
 
-**Get started:** [Download v1.0.0](https://github.com/SNatangelo/ojs-journal-quota/releases/tag/v1.0.0) · [Illustrated user guide](docs/user-guide.md) · [Report an issue](https://github.com/SNatangelo/ojs-journal-quota/issues)
+**Get started:** [Download v1.0.0.1](https://github.com/SNatangelo/ojs-journal-quota/releases/tag/v1.0.0.1) · [Illustrated user guide](https://github.com/SNatangelo/ojs-journal-quota/blob/main/docs/user-guide.md) · [Report an issue](https://github.com/SNatangelo/ojs-journal-quota/issues)
 
 ## Features
 
@@ -31,23 +31,25 @@ The screenshots below use fictional journals, users and submissions from a local
 
 **Site administrator — all journals at a glance**
 
-![Journal Quota site overview with each journal's storage usage and status](docs/images/02-overview.png)
+![Journal Quota site overview with each journal's storage usage and status](https://raw.githubusercontent.com/SNatangelo/ojs-journal-quota/main/docs/images/02-overview.png)
 
 **Journal manager — disk space and an enforced limit**
 
-![Journal manager's Disk Space page showing usage, largest submissions and a closed quota](docs/images/06-manager-disk-space-closed.png)
+![Journal manager's Disk Space page showing usage, largest submissions and a closed quota](https://raw.githubusercontent.com/SNatangelo/ojs-journal-quota/main/docs/images/06-manager-disk-space-closed.png)
 
-See the [illustrated user guide](docs/user-guide.md) for per-journal settings, default limits, warnings, notifications, email templates and the submission experience.
+See the [illustrated user guide](https://github.com/SNatangelo/ojs-journal-quota/blob/main/docs/user-guide.md) for per-journal settings, default limits, warnings, notifications, email templates and the submission experience.
 
 ## Compatibility
 
 Version **1.0.0** was developed for **OJS 3.5.0-6**. It is installed and functioning on **JSENetwork with MySQL**; development testing used a separate local OJS 3.5.0-6 Docker installation with MariaDB/InnoDB.
 
+Version **1.0.0.1** is a maintenance release prepared for the PKP Plugin Gallery's four-part versioning requirement. It incorporates the English server-log messages and documentation added since v1.0.0. The live deployment and development evidence above refer to v1.0.0; they do not establish that v1.0.0.1 has passed a fresh installation or upgrade test.
+
 Other OJS versions and database engines beyond MySQL/MariaDB have not yet been verified.
 
 ## Installation and quick start
 
-1. Download [journalQuota-1.0.0.tar.gz](https://github.com/SNatangelo/ojs-journal-quota/releases/download/v1.0.0/journalQuota-1.0.0.tar.gz), the installable release package, rather than GitHub's automatic **Source code** downloads.
+1. Download [journalQuota-1.0.0.1.tar.gz](https://github.com/SNatangelo/ojs-journal-quota/releases/download/v1.0.0.1/journalQuota-1.0.0.1.tar.gz), the installable release package, rather than GitHub's automatic **Source code** downloads.
 2. Install the archive through the OJS plugin management interface as a **site administrator**, then enable **Journal Quota**.
 3. Open the plugin's **Settings** to view the storage overview. Leave quotas at `0` (unlimited) while running an initial full scan and reviewing usage.
 4. Configure the default quota, warning threshold and enforcement mode. Select individual journals to override the defaults where needed.
@@ -114,7 +116,7 @@ The plugin does not alter journal settings, submissions or submission files. Apa
 - a journal closed for quota reopened;
 - a fresh reinstall recreated the tables and email template.
 
-`uninstall.sql` is not part of the v1.0.0 release archive; download it from this repository.
+`uninstall.sql` is included starting with v1.0.0.1. For v1.0.0, download it from this repository.
 
 ## How quota enforcement works
 
@@ -133,6 +135,12 @@ Grace is a **storage allowance, not a time period**: a 1,000 MB quota with 10% t
 
 Existing files remain available for reading, download and deletion. Quota restrictions lift when usage falls below the limit; the journal's own submission settings still apply. Site administrators are exempt from these restrictions.
 
+## Privacy and data handling
+
+Journal Quota accounts for storage locally within OJS. It stores quota settings, file-accounting metadata (including file paths and sizes), and temporary upload reservations in the OJS database. It uses existing OJS user and journal information to authorize access and notify the relevant journal managers.
+
+The plugin does not introduce external API integrations, telemetry, or additional third-party data processing services. Email alerts containing quota information are delivered through the installation's configured OJS mail infrastructure, which may itself use an external mail provider. No additional third-party accounts, subscriptions, or runtime software are required. The local integration test tools are not runtime dependencies.
+
 ## Testing and known limitations
 
 The [automated OJS suite](https://github.com/SNatangelo/ojs-journal-quota/blob/main/tests/README.md) defines **128 checks** in its reference four-journal dataset: **101 CLI and 27 HTTP**. It covers file accounting, reservations, notifications, upload enforcement and access control. These are suite counts, not an execution report.
@@ -143,16 +151,18 @@ The CI workflow checks PHP 8.4 syntax, Bash syntax and file headers, and runs is
 - Concurrency checks exercise simultaneous reservation requests, not complete simultaneous HTTP uploads.
 - Production email delivery, complete XML issue import, profile-image exemption and live package installation/upgrade remain outside the automated suite.
 
-See the [testing and validation notes](docs/testing.md) for development evidence and the [test README](https://github.com/SNatangelo/ojs-journal-quota/blob/main/tests/README.md) for setup and cleanup limits. Test scripts are not part of the installable release package.
+See the [testing and validation notes](https://github.com/SNatangelo/ojs-journal-quota/blob/main/docs/testing.md) for development evidence and the [test README](https://github.com/SNatangelo/ojs-journal-quota/blob/main/tests/README.md) for setup and cleanup limits. Test scripts are not part of the installable release package.
 
 ## Support and contributions
 
 Please use [GitHub Issues](https://github.com/SNatangelo/ojs-journal-quota/issues) for reproducible bug reports and feature requests. Include your OJS/PHP/database versions and the steps needed to reproduce a problem; do not include credentials or private manuscript files.
 
-Pull requests are welcome. Keep changes focused and include relevant test evidence; changes to `main` go through review and automated checks. Before a contribution is merged, its author accepts the [Contributor License Agreement](CLA.md) with a comment on the pull request: you keep your copyright, and the contribution stays available under the AGPL. See [CONTRIBUTING.md](CONTRIBUTING.md).
+For security vulnerabilities, please use the private reporting channel described in [SECURITY.md](SECURITY.md), rather than a public issue.
+
+Pull requests are welcome. Keep changes focused and include relevant test evidence; changes to `main` go through review and automated checks. Before a contribution is merged, its author accepts the [Contributor License Agreement](https://github.com/SNatangelo/ojs-journal-quota/blob/main/CLA.md) with a comment on the pull request: you keep your copyright, and the contribution stays available under the AGPL. See [CONTRIBUTING.md](https://github.com/SNatangelo/ojs-journal-quota/blob/main/CONTRIBUTING.md).
 
 ## License
 
 Copyright © 2026 Stefano Natangelo.
 
-Licensed under the **GNU Affero General Public License, version 3 only** (`AGPL-3.0-only`). See [LICENSE](LICENSE). Separate licences are possible; see [LICENSING.md](LICENSING.md).
+Licensed under the **GNU Affero General Public License, version 3 only** (`AGPL-3.0-only`). See [LICENSE](LICENSE). Separate licences are possible; see [LICENSING.md](https://github.com/SNatangelo/ojs-journal-quota/blob/main/LICENSING.md).
