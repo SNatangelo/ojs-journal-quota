@@ -55,7 +55,7 @@ restore() {
       exit 2
     fi
     # Only remove the known runner files; do not erase unexpected recovery data.
-    jq_docker exec "$JQ_OJS_ID" rm -f -- /tmp/jqtests/cli.php /tmp/jqtests/guard.php /tmp/jqtests/preflight.php /tmp/jqtests/authorization || result=2
+    jq_docker exec "$JQ_OJS_ID" rm -f -- /tmp/jqtests/cli.php /tmp/jqtests/guard.php /tmp/jqtests/preflight.php /tmp/jqtests/expected-version.xml /tmp/jqtests/authorization || result=2
     jq_docker exec "$JQ_OJS_ID" rmdir /tmp/jqtests || result=2
   else
     echo 'Setup or snapshot failed; /tmp/jqtests was retained for inspection. No regression tests started.' >&2
@@ -71,6 +71,8 @@ host_path() { if command -v cygpath >/dev/null 2>&1; then cygpath -w "$1"; else 
 for helper in cli.php preflight.php guard.php; do
   jq_docker cp "$(host_path "$HERE/$helper")" "$JQ_OJS_ID:/tmp/jqtests/$helper"
 done
+# Keep the expected source version separate from the installed plugin.
+jq_docker cp "$(host_path "$PLUGIN_DIR/version.xml")" "$JQ_OJS_ID:/tmp/jqtests/expected-version.xml"
 printf '%s\n%s\n%s\n' "$JQ_RUN_NONCE" "$JQ_TEST_INSTANCE" "$JQ_DB_IP" | \
   jq_docker exec -i "$JQ_OJS_ID" sh -c 'umask 077; cat > /tmp/jqtests/authorization'
 jq_docker exec "$JQ_OJS_ID" chown -R www-data:www-data /tmp/jqtests
