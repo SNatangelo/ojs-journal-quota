@@ -7,6 +7,7 @@
 import gzip
 import hashlib
 import io
+import os
 import re
 import subprocess
 import tarfile
@@ -24,6 +25,22 @@ SUFFIXES = {"classes": ".php", "templates": ".tpl", "locale": ".po"}
 
 def fail(message):
     raise SystemExit(message)
+
+
+def source_date_epoch():
+    """Return a fixed, non-zero timestamp for every archive entry.
+
+    OJS 3.5's Smarty resource loader treats a template whose mtime is 0 as
+    missing, so entries dated 1970-01-01 break a manual `tar -xzf` install.
+    SOURCE_DATE_EPOCH (reproducible-builds.org) wins; otherwise the committer
+    date of HEAD keeps the build reproducible for a given commit.
+    """
+    value = os.environ.get("SOURCE_DATE_EPOCH") or subprocess.check_output(
+        ["git", "log", "-1", "--format=%ct", "HEAD"], cwd=ROOT
+    ).decode("ascii").strip()
+    if not re.fullmatch(r"[0-9]+", value) or int(value) <= 0:
+        fail("SOURCE_DATE_EPOCH must be a positive integer")
+    return int(value)
 
 
 def build():
@@ -66,21 +83,24 @@ def build():
     archive = dist / f"{PRODUCT}-{version}.tar.gz"
 
     # Stable metadata makes identical inputs produce identical archives.
+    mtime = source_date_epoch()
     directories = {PRODUCT}
     for name in files:
         directories.update(str(p) for p in PurePosixPath(name).parents if str(p) != ".")
     with archive.open("wb") as raw:
-        with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as compressed:
+        with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=mtime) as compressed:
             with tarfile.open(fileobj=compressed, mode="w", format=tarfile.USTAR_FORMAT) as tar:
                 for name in sorted(directories):
                     member = tarfile.TarInfo(name)
                     member.type = tarfile.DIRTYPE
                     member.mode = 0o755
+                    member.mtime = mtime
                     tar.addfile(member)
                 for name, data in sorted(files.items()):
                     member = tarfile.TarInfo(name)
                     member.size = len(data)
                     member.mode = 0o644
+                    member.mtime = mtime
                     tar.addfile(member, io.BytesIO(data))
 
     # Verify the actual artifact, not just the staging selection.
@@ -90,6 +110,8 @@ def build():
         if len(names) != len(set(names)) or set(names) != directories | set(files):
             fail("Archive contents do not match the allowlist")
         for member in members:
+            if member.mtime != mtime:
+                fail(f"Unexpected archive mtime: {member.name}")
             if member.name in directories:
                 if not member.isdir():
                     fail(f"Unexpected directory type: {member.name}")
